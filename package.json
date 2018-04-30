@@ -1,0 +1,14 @@
+{
+  "name": "mafia-first-pass",
+  "version": "1.0.0",
+  "description": "mafia game, backend and frontend",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Brook Li",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.16.3"
+  }
+}
