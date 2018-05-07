@@ -1,55 +1,23 @@
-/* 
-WAITING: waiting for game to fill up with players
-STARTED: just started game, displaying list of players 
-and waiting for ready from each player
-DAYTIME: daytime, voting on players to hang
-ENDOFDAY: displaying results of daytime voting
-NIGHTTIME: nighttime, villagers sleep, werewolves choose to kill
-ENDOFNIGHT: displaying results of nighttime attacks
-OVER: game over screen, waiting for players to ready up
-before creating new game
-*/
-const Phases = {
-    WAITING: "waiting",
-    STARTED: "started",
-    DAYTIME: "daytime",
-    ENDOFDAY: "endOfDay",
-    NIGHTTIME: "nighttime",
-    ENDOFNIGHT: "endOfNight",
-    OVER: "over"
-}
+require("shared.js")
 
-const ClientMessageType = {
-    GAMESTATEREQ: "gameStateReq",
-    VOTECAST: "voteCast",
-    ACKNOWLEDGE: "acknowledge" // acknowledge results of end of day and end of night
-}
-
-const ServerMessageType = {
-    GAMESTATEINFO = "gameStateInfo",
-    VOTECAST: "voteCast"
-}
-
-class PlayerDetails {
-    constructor(isWerewolf){
-        this.isWerewolf = isWerewolf
-        this.isAlive = true
-    }
-}
-
-class GameState {
-    constructor(){
-        this.phase = Phases.WAITING
-        this.players = {} // playername -> PlayerDetails object
-        this.votes = null // playername -> playername
-        this.killedPlayer = null
+/* Format of single message returned GameController
+handleMessage function. To preserve type across
+different situations, all messages are returned inside
+an array, even if there is only one message. */
+class GameControllerMessage {
+    constructor(recipients, payload){
+        this.recipients = recipients
+        this.payload = payload
     }
 }
 
 /* Represents a single game instance. */
 class GameController {
-    constructor(){
+    constructor(totalPlayers, numWerewolves){
         this.gameState = new GameState()
+        this.totalPlayers = totalPlayers
+        this.numWerewolves = numWerewolves
+        this.livingPlayersCache = null // Set of all players still alive
     }
     /* Return list of messages to send and a list of recipients for each message
     or return null if there is no message to send. */
@@ -58,20 +26,20 @@ class GameController {
             case ClientMessageType.GAMESTATEREQ:
                 return this.gameStateReqHandler(sendingPlayer)
             case ClientMessageType.VOTECAST:
-                if (!("target" in message)) {
-                    console.log("Warning: Missing \"target\" property in received vote cast message.")
+                if(!("choice" in message)) {
+                    console.log("Warning: Missing \"choice\" property in received vote cast message.")
                     return null
                 }
                 else {
-                    return this.voteCastHandler(message.target)
+                    return this.voteCastHandler(sendingPlayer, message.choice)
                 }
             default:
-                console.log("Warning: Unknown message type received: " + message.type)
+                console.log("Warning: Unknown message type received: \"" + message.type + "\".")
                 return null
         }
     }
     gameStateReqHandler(sendingPlayer){
-        if (sendingPlayer in gameState.players){
+        if(sendingPlayer in gameState.players){
             return [{
                 recipients: [sendingPlayer],
                 payload: this.gameStateMessage(gameState.players[sendingPlayer].isWerewolf)
@@ -82,45 +50,157 @@ class GameController {
             return null
         }
     }
-    voteCastHandler(sendingPlayer, target){
-        if (!(sendingPlayer in votes)){
+    voteCastHandler(sendingPlayer, choice){
+        if(sendingPlayer in votes){
             console.log("Warning: Vote cast message received for player that already voted.")
             return null
         }
-        this.votes[playerName] = target
-        if(this.votes.keys().length == this.livingPlayers().keys().length){
-            const killedPlayer = this.countVotes()
-            // TODO: adjust game state and append game state update messages
+        if(!(sendingPlayer in livingPlayersCache)){
+            console.log("Warning: Vote cast message received for player that is dead.")
+            return null
         }
-        else {
-            const voteCastMessage =
-            {
-                recipients: this.gameState.players.keys(),
-                payload:
-                {   
-                    type: ServerMessageType.VOTECAST,
-                    playerName: target
+        this.votes[sendingPlayer] = choice
+        if(this.phase == Phases.DAYTIMEVOTING){
+            if(this.votes.keys().length == this.livingPlayersCache.size){
+                if(this.countVotes()){
+                    this.killPlayer(this.gameState.chosenPlayer)
+                    this.gameState.phase = phases.ENDOFDAY
                 }
+                else{
+                    this.gameState.phase = phases.DAYTIMEVOTEFAILED
+                }
+                return gameStateUpdateAll()
+            }
+            else {
+                const recipients = this.gameState.players.keys()
+                const payload =
+                    {   
+                        type: ServerMessageType.VOTECAST,
+                        playerName: sendingPlayer,
+                        choice: choice
+                    }
+                return [new GameControllerMessage(recipients, payload)]
             }
         }
-        // TODO: return value
+        if(this.phase == Phases.NIGHTTIMEVOTING){
+            if(this.gameState.players[sendingPlayer].isWerewolf){
+                const livingWerewolves = this.gameState.players.keys().filter(
+                    player => this.gameState.players[player].isWerewolf && this.gameState.players[player].isAlive
+                )
+                if(this.votes.keys().length == this.livingWerewolves.length){
+                    if(this.countVotes()){
+                        this.killPlayer(this.gameState.chosenPlayer)
+                        this.gameState.phase = phases.ENDOFNIGHT
+                        return gameStateUpdateAll()
+                    }
+                    else{
+                        this.gameState.phase = phases.NIGHTTIMEVOTEFAILED
+                        const recipients = this.gameState.players.keys().filter(
+                            player => this.gameState.players[player].isWerewolf
+                        )
+                        const payload = gameStateMessage(true)
+                        return [new GameControllerMessage(recipients, payload)]
+                    }
+                }
+                else{
+                    const recipients = this.gameState.players.keys().filter(
+                        player => this.gameState.players[player].isWerewolf
+                    )
+                    const payload =
+                    {   
+                        type: ServerMessageType.VOTECAST,
+                        playerName: sendingPlayer,
+                        choice: choice
+                    }
+                    return [new GameControllerMessage(recipients, payload)]
+                }
+            }
+            else{
+                console.log(`Warning: privileged vote received by non-privileged player: "${sendingPlayer}".`)
+                return null
+            }
+        }
+        // TODO: nighttime voting and failure case
     }
-    /* Return array of names of players that are still alive. */
+    /* Placeholder. Move this code to the function that initlializes the set of players. */
     livingPlayers(){
-        const living = new Set()
+        const livingPlayers = new Set()
+        for (var i in this.gameState.players){
+            if(this.gameState.players[i].isAlive){
+                this.livingPlayers.add(i)
+            }
+        }
+        return livingPlayers
     }
-    /* Return message describing game state. Non-privileged messages have faction
+    /* Return message payload describing game state. Non-privileged messages have faction
     information removed to prevents clients who are villagers from determining
     the identity of the werewolf. */
     gameStateMessage(isPrivileged){
-        // TODO
+        const gameStateCopy = new GameState()
+        gameStateCopy.phase = this.gameState.phase
+        gameStateCopy.chosenPlayer = this.gameState.chosenPlayer
+        for (var player in this.gameState.votes){
+            gameStateCopy.votes[player] = this.gameState.votes[player]
+        }
+        if(isPrivileged){
+            for(var player in this.gameState.players){
+                if(this.gameState.players[player]){
+                    gameStateCopy.players[player] = new PlayerDetails(this.gameState.players[player].isWerewolf)
+                    gameStateCopy.players[player].isAlive = this.gameState.players[player].isAlive
+                }
+                else{
+                    console.log("Warning: player \"" + player + "\" with falsy value found in players object.")
+                }
+            }
+        }
+        else{ // to simulate lack to privileged information, all players are marked as villagers
+            for(var player in this.gameState.players){
+                if(this.gameState.players[player]){
+                    gameStateCopy.players[player] = new PlayerDetails(false)
+                    gameStateCopy.players[player].isAlive = this.gameState.players[player].isAlive
+                }
+                else{
+                    console.log("Warning: player \"" + player + "\" with falsy value found in players object.")
+                }
+            }
+        }
+        const stateInfoPayload =
+            {
+                type: ServerMessageType.GAMESTATEINFO,
+                info: gameStateCopy
+            }
+        return stateInfoPayload
     }
     /* Return an array of messages that updates game state for all players. */
     gameStateUpdateAll(){
-        // TODO
+        const privilegedPayload = this.gameStateMessage(true)
+        const nonPrivilegedPayload = this.gameStateMessage(false)
+        const privilegedRecipients = this.gameState.players.keys().filter(
+            player => this.gameState.players[player].isWerewolf
+        )
+        const nonPrivilegedRecipients = this.gameState.players.keys().filter(
+            player => !this.gameState.players[player].isWerewolf
+        )
+        const privilegedMessage = new GameControllerMessage(privilegedRecipients, privilegedPayload)
+        const nonPrivilegedMessage = new GameControllerMessage(nonPrivilegedRecipients, nonPrivilegedPayload)
+        return [privilegedMessage, nonPrivilegedMessage]
     }
-    /* Analyze votes, returning name of player killed by voting, or null if no one was killed.*/
+    /* Analyze votes, returning whether there is a majority of yea votes.*/
     countVotes(){
-        // TODO
+        var yeaCount = 0
+        var nayCount = 0
+        for (var player in this.gameState.votes){
+            if(this.gameState.votes[player]){
+                yeaCount++
+            }
+            else{
+                nayCount++
+            }
+        }
+        return yeaCount > nayCount
+    }
+    killPlayer(player){
+        this.livingPlayersCache.delete(player)
+        this.gameState.players[player].isAlive = false
     }
 }
