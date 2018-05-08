@@ -40,13 +40,10 @@ const ClientMessageType = {
 
 const ServerMessageType = {
     GAMESTATEINFO = "gameStateInfo",
-    TARGETCHOSEN = "targetChosen",
-    VOTECAST: "voteCast"
-}
-
-const VoteChoice = {
-    YEA = "YEA",
-    NAY = "NAY"
+    ACKNOWLEDGEMENT = "acknoledgement",
+    VOTECAST: "voteCast",
+    PLAYERJOINED: "playerJoined",
+    PLAYERLEFT: "playerLeft"
 }
 
 class PlayerDetails {
@@ -61,6 +58,7 @@ class GameState {
         this.phase = Phases.WAITING
         this.players = {} // player name -> PlayerDetails object
         this.votes = {} // player name -> value; true = yea, false = nay
+        this.acks = new Set() // acknowledgements for information displayed in certain phases
         this.chosenPlayer = null // player chosen for voting or player just killed
     }
 }
