@@ -1,5 +1,7 @@
 /* Shared constants and classes between client and server. */
 
+const shared = {}
+
 /* 
 WAITING: waiting for game to fill up with players
 STARTED: just started game, displaying list of players 
@@ -17,7 +19,7 @@ ENDOFNIGHT: displaying results of nighttime attacks
 OVER: game over screen, waiting for players to ready up
 before creating new game
 */
-const Phases = {
+shared.Phases = {
     WAITING: "waiting",
     STARTED: "started",
     DAYTIME: "daytime",
@@ -31,14 +33,14 @@ const Phases = {
     OVER: "over"
 }
 
-const ClientMessageType = {
+shared.ClientMessageType = {
     GAMESTATEREQ: "gameStateReq",
     SUGGESTTARGET: "suggestTarget",
     VOTECAST: "voteCast",
     ACKNOWLEDGE: "acknowledge" // acknowledge results of end of day and end of night
 }
 
-const ServerMessageType = {
+shared.ServerMessageType = {
     GAMESTATEINFO = "gameStateInfo",
     ACKNOWLEDGEMENT = "acknoledgement",
     VOTECAST: "voteCast",
@@ -46,14 +48,14 @@ const ServerMessageType = {
     PLAYERLEFT: "playerLeft"
 }
 
-class PlayerDetails {
+shared.PlayerDetails = class {
     constructor(isWerewolf){
         this.isWerewolf = isWerewolf
         this.isAlive = true
     }
 }
 
-class GameState {
+shared.GameState = class {
     constructor(){
         this.phase = Phases.WAITING
         this.players = {} // player name -> PlayerDetails object
@@ -61,4 +63,9 @@ class GameState {
         this.acks = new Set() // acknowledgements for information displayed in certain phases
         this.chosenPlayer = null // player chosen for voting or player just killed
     }
+}
+
+// export only valid server side
+if(typeof window === "undefined"){
+    module.exports = shared
 }
