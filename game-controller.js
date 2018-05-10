@@ -1,5 +1,5 @@
-const Shared = require("shared.js")
-const Util = require("util.js")
+const SharedLibrary = require("./shared.js")
+const Util = require("./util.js")
 
 const GameController = {}
 
@@ -19,7 +19,7 @@ GameController.GameController = class {
     /* numWerewolves should be less than half of total players.
     Minimum totalPlayers in a game is 3. */
     constructor(totalPlayers, numWerewolves){
-        this.gameState = new Shared.GameState()
+        this.gameState = new SharedLibrary.GameState()
         this.totalPlayers = totalPlayers
         this.numWerewolves = numWerewolves
         this.livingPlayersCache = null // Set of all players still alive
@@ -29,16 +29,16 @@ GameController.GameController = class {
             console.log("Warning: attempt to join player that is already joined.")
         }
         else{
-            if(this.gameState.players.keys().length == this.totalPlayers - 1){
-                this.gameState.players[playerName] = new Shared.PlayerDetails(false)
+            if(Object.keys(this.gameState.players).length == this.totalPlayers - 1){
+                this.gameState.players[playerName] = new SharedLibrary.PlayerDetails(false)
                 return this.initializeGame()
             }
             else{
-                const recipients = this.gameState.player.keys() // exclude player that just joined
-                this.gameState.players[playerName] = new Shared.PlayerDetails(false)
+                const recipients = Object.keys(this.gameState.player) // exclude player that just joined
+                this.gameState.players[playerName] = new SharedLibrary.PlayerDetails(false)
                 const payload =
                     {
-                        type: Shared.ServerMessageType.PLAYERJOINED,
+                        type: SharedLibrary.ServerMessageType.PLAYERJOINED,
                         playerName: playerName
                     }
                 const playerJoinedMessage = new GameController.GameControllerMessage(recipients, payload)
@@ -51,10 +51,10 @@ GameController.GameController = class {
     removePlayer(playerName){
         if(playerName in this.gameState.players){
             delete this.gameState.players[playerName]
-            const recipients = this.gameState.player.keys()
+            const recipients = Object.keys(this.gameState.player)
             const payload =
             {
-                type: Shared.ServerMessageType.PLAYERLEFT,
+                type: SharedLibrary.ServerMessageType.PLAYERLEFT,
                 playerName: playerName
             }
             return [new GameController.GameControllerMessage(recipients, payload)]
@@ -71,9 +71,9 @@ GameController.GameController = class {
             return null
         }
         switch(message.type){
-            case Shared.ClientMessageType.GAMESTATEREQ:
+            case SharedLibrary.ClientMessageType.GAMESTATEREQ:
                 return this.gameStateReqHandler(sendingPlayer)
-            case Shared.ClientMessageType.VOTECAST:
+            case SharedLibrary.ClientMessageType.VOTECAST:
                 if(!("choice" in message)) {
                     console.log("Warning: Missing \"choice\" property in received vote cast message.")
                     return null
@@ -81,9 +81,9 @@ GameController.GameController = class {
                 else {
                     return this.voteCastHandler(sendingPlayer, message.choice)
                 }
-            case Shared.ClientMessageType.ACKNOWLEDGE:
+            case SharedLibrary.ClientMessageType.ACKNOWLEDGE:
                 return this.ackHandler(sendingPlayer)
-            case Shared.ClientMessageType.SUGGESTTARGET:
+            case SharedLibrary.ClientMessageType.SUGGESTTARGET:
                 if(!("target" in message)) {
                     console.log("Warning: missing \"target\" property in received suggest target message.")
                     return null
@@ -117,53 +117,53 @@ GameController.GameController = class {
             return null
         }
         this.votes[sendingPlayer] = choice
-        if(this.phase == Shared.Phases.DAYTIMEVOTING){
-            if(this.votes.keys().length == this.livingPlayersCache.size){
+        if(this.phase == SharedLibrary.Phases.DAYTIMEVOTING){
+            if(Object.keys(this.votes).length == this.livingPlayersCache.size){
                 if(this.countVotes()){
                     this.killPlayer(this.gameState.chosenPlayer)
                     if(this.checkGameOver()){
-                        this.gameState.phase = Shared.Phases.OVER
+                        this.gameState.phase = SharedLibrary.Phases.OVER
                     }
                     else{
-                        this.gameState.phase = Shared.Phases.ENDOFDAY
+                        this.gameState.phase = SharedLibrary.Phases.ENDOFDAY
                         this.gameState.acks.clear()
                     }
                 }
                 else{
-                    this.gameState.phase = Shared.Phases.DAYTIMEVOTEFAILED
+                    this.gameState.phase = SharedLibrary.Phases.DAYTIMEVOTEFAILED
                     this.gameState.acks.clear()
                 }
                 return this.gameStateUpdateAll()
             }
             else {
-                const recipients = this.gameState.players.keys()
+                const recipients = Object.keys(this.gameState.players)
                 const payload =
                     {   
-                        type: Shared.ServerMessageType.VOTECAST,
+                        type: SharedLibrary.ServerMessageType.VOTECAST,
                         playerName: sendingPlayer,
                         choice: choice
                     }
                 return [new GameController.GameControllerMessage(recipients, payload)]
             }
         }
-        else if(this.phase == Shared.Phases.NIGHTTIMEVOTING){
+        else if(this.phase == SharedLibrary.Phases.NIGHTTIMEVOTING){
             if(this.gameState.players[sendingPlayer].isWerewolf){
-                if(this.votes.keys().length == this.livingWerewolves().length){
+                if(Object.keys(this.votes).length == this.livingWerewolves().length){
                     if(this.countVotes()){
                         this.killPlayer(this.gameState.chosenPlayer)
                         if(this.checkGameOver()){
-                            this.gameState.phase = Shared.Phases.OVER
+                            this.gameState.phase = SharedLibrary.Phases.OVER
                         }
                         else{
-                            this.gameState.phase = Shared.Phases.ENDOFNIGHT
+                            this.gameState.phase = SharedLibrary.Phases.ENDOFNIGHT
                             this.gameState.acks.clear()
                         }
                         return this.gameStateUpdateAll()
                     }
                     else{
-                        this.gameState.phase = Shared.Phases.NIGHTTIMEVOTEFAILED
+                        this.gameState.phase = SharedLibrary.Phases.NIGHTTIMEVOTEFAILED
                         this.gameState.acks.clear()
-                        const recipients = this.gameState.players.keys().filter(
+                        const recipients = Object.keys(this.gameState.players).filter(
                             player => this.gameState.players[player].isWerewolf
                         )
                         const payload = gameStateMessage(true)
@@ -171,12 +171,12 @@ GameController.GameController = class {
                     }
                 }
                 else{
-                    const recipients = this.gameState.players.keys().filter(
+                    const recipients = Object.keys(this.gameState.players).filter(
                         player => this.gameState.players[player].isWerewolf
                     )
                     const payload =
                     {   
-                        type: Shared.ServerMessageType.VOTECAST,
+                        type: SharedLibrary.ServerMessageType.VOTECAST,
                         playerName: sendingPlayer,
                         choice: choice
                     }
@@ -199,69 +199,69 @@ GameController.GameController = class {
             return null
         }
         switch(this.gameState.phase){
-            case Shared.Phases.ENDOFDAY:
+            case SharedLibrary.Phases.ENDOFDAY:
                 this.gameState.acks.add(sendingPlayer)
                 if(this.gameState.acks.size == this.livingPlayersCache.size){
-                    this.gameState.phase = Shared.Phases.NIGHTTIME
+                    this.gameState.phase = SharedLibrary.Phases.NIGHTTIME
                     this.gameState.chosenPlayer = null
                     return this.gameStateUpdateAll()
                 }
                 else{
-                    const recipients = this.gameState.players.keys()
+                    const recipients = Object.keys(this.gameState.players)
                     const payload = 
                         {
-                            type: Shared.ServerMessageType.ACKNOWLEDGEMENT,
+                            type: SharedLibrary.ServerMessageType.ACKNOWLEDGEMENT,
                             playerName: sendingPlayer
                         }
                     return [new GameController.GameControllerMessage(recipients, payload)]
                 }
-            case Shared.Phases.ENDOFNIGHT:
+            case SharedLibrary.Phases.ENDOFNIGHT:
                 this.gameState.acks.add(sendingPlayer)
                 if(this.gameState.acks.size == this.livingWerewolves().length){
-                    this.gameState.phase = Shared.Phases.DAYTIME
+                    this.gameState.phase = SharedLibrary.Phases.DAYTIME
                     this.gameState.chosenPlayer = null
                     return this.gameStateUpdateAll()
                 }
                 else{
-                    const recipients = this.gameState.players.keys()
+                    const recipients = Object.keys(this.gameState.players)
                     const payload = 
                         {
-                            type: Shared.ServerMessageType.ACKNOWLEDGEMENT,
+                            type: SharedLibrary.ServerMessageType.ACKNOWLEDGEMENT,
                             playerName: sendingPlayer
                         }
                     return [new GameController.GameControllerMessage(recipients, payload)]
                 }
-            case Shared.Phases.DAYTIMEVOTEFAILED:
+            case SharedLibrary.Phases.DAYTIMEVOTEFAILED:
                 this.gameState.acks.add(sendingPlayer)
                 if(this.gameState.acks.size == this.livingPlayersCache.size){
-                    this.gameState.phase = Shared.Phases.DAYTIME
+                    this.gameState.phase = SharedLibrary.Phases.DAYTIME
                     this.gameState.chosenPlayer = null
                     return this.gameStateUpdateAll()
                 }
                 else{
-                    const recipients = this.gameState.players.keys()
+                    const recipients = Object.keys(this.gameState.players)
                     const payload = 
                         {
-                            type: Shared.ServerMessageType.ACKNOWLEDGEMENT,
+                            type: SharedLibrary.ServerMessageType.ACKNOWLEDGEMENT,
                             playerName: sendingPlayer
                         }
                     return [new GameController.GameControllerMessage(recipients, payload)]
                 }
-            case Shared.Phases.NIGHTTIMEVOTEFAILED:
+            case SharedLibrary.Phases.NIGHTTIMEVOTEFAILED:
                 if(this.gameState.players[sendingPlayer].isWerewolf){
                     this.gameState.acks.add(sendingPlayer)
                     if(this.gameState.acks.size == this.livingWerewolves().length){
-                        this.gameState.phase = Shared.Phases.NIGHTTIME
+                        this.gameState.phase = SharedLibrary.Phases.NIGHTTIME
                         this.gameState.chosenPlayer = null
                         return this.gameStateUpdateAll()
                     }
                     else{
-                        const recipients = this.gameState.players.keys().filter(
+                        const recipients = Object.keys(this.gameState.players).filter(
                             player => this.gameState.players[player].isWerewolf
                         )
                         const payload = 
                             {
-                                type: Shared.ServerMessageType.ACKNOWLEDGEMENT,
+                                type: SharedLibrary.ServerMessageType.ACKNOWLEDGEMENT,
                                 playerName: sendingPlayer
                             }
                         return [new GameController.GameControllerMessage(recipients, payload)]
@@ -271,10 +271,10 @@ GameController.GameController = class {
                     console.log("Warning: ack received by non-werewolf for werewolf-only end of night ack screen.")
                     return null
                 }
-            case Shared.Phases.STARTED:
+            case SharedLibrary.Phases.STARTED:
                 this.gameState.acks.add(sendingPlayer)
-                if(this.gameState.acks.size == this.gameState.players.keys().length){
-                    this.gameState.phase = Shared.Phases.NIGHTTIME
+                if(this.gameState.acks.size == Object.keys(this.gameState.players).length){
+                    this.gameState.phase = SharedLibrary.Phases.NIGHTTIME
                     return this.gameStateUpdateAll()
                 }
                 else{
@@ -287,10 +287,10 @@ GameController.GameController = class {
     }
     suggestHander(sendingPlayer, target){
         switch(this.gameState.phase){
-            case Shared.Phases.DAYTIME:
+            case SharedLibrary.Phases.DAYTIME:
                 if(this.livingPlayersCache.has(sendingPlayer)){
                     if(this.livingPlayersCache.has(target)){
-                        this.gameState.phase = Shared.Phases.DAYTIMEVOTING
+                        this.gameState.phase = SharedLibrary.Phases.DAYTIMEVOTING
                         this.gameState.chosenPlayer = target
                         this.gameState.votes = {}
                         return this.gameStateUpdateAll()
@@ -304,10 +304,10 @@ GameController.GameController = class {
                     console.log("Warning: player that chose target not in set of living players.")
                     return null
                 }
-            case Shared.Phases.NIGHTTIME:
+            case SharedLibrary.Phases.NIGHTTIME:
                 if(this.gameState.players[sendingPlayer].isAlive && this.gameState.players[sendingPlayer].isWerewolf){
                     if(!this.gameState.players[target].isWerewolf && this.gameState.players[target].isAlive){
-                        this.gameState.phase = Shared.Phases.NIGHTTIMEVOTING
+                        this.gameState.phase = SharedLibrary.Phases.NIGHTTIMEVOTING
                         this.gameState.chosenPlayer = target
                         this.gameState.votes = {}
                         return this.gameStateUpdateAll()
@@ -338,7 +338,7 @@ GameController.GameController = class {
         return livingPlayers
     }
     livingWerewolves(){
-        return this.gameState.players.keys().filter(
+        return Object.keys(this.gameState.players).filter(
             player => this.gameState.players[player].isWerewolf && this.gameState.players[player].isAlive
         )
     }
@@ -356,7 +356,7 @@ GameController.GameController = class {
         if(isPrivileged){
             for(var player in this.gameState.players){
                 if(this.gameState.players[player]){
-                    gameStateCopy.players[player] = new Shared.PlayerDetails(this.gameState.players[player].isWerewolf)
+                    gameStateCopy.players[player] = new SharedLibrary.PlayerDetails(this.gameState.players[player].isWerewolf)
                     gameStateCopy.players[player].isAlive = this.gameState.players[player].isAlive
                 }
                 else{
@@ -367,7 +367,7 @@ GameController.GameController = class {
         else{ // to simulate lack to privileged information, all players are marked as villagers
             for(var player in this.gameState.players){
                 if(this.gameState.players[player]){
-                    gameStateCopy.players[player] = new Shared.PlayerDetails(false)
+                    gameStateCopy.players[player] = new SharedLibrary.PlayerDetails(false)
                     gameStateCopy.players[player].isAlive = this.gameState.players[player].isAlive
                 }
                 else{
@@ -377,7 +377,7 @@ GameController.GameController = class {
         }
         const stateInfoPayload =
             {
-                type: Shared.ServerMessageType.GAMESTATEINFO,
+                type: SharedLibrary.ServerMessageType.GAMESTATEINFO,
                 info: gameStateCopy
             }
         return stateInfoPayload
@@ -386,10 +386,10 @@ GameController.GameController = class {
     gameStateUpdateAll(){
         const privilegedPayload = this.gameStateMessage(true)
         const nonPrivilegedPayload = this.gameStateMessage(false)
-        const privilegedRecipients = this.gameState.players.keys().filter(
+        const privilegedRecipients = Object.keys(this.gameState.players).filter(
             player => this.gameState.players[player].isWerewolf
         )
-        const nonPrivilegedRecipients = this.gameState.players.keys().filter(
+        const nonPrivilegedRecipients = Object.keys(this.gameState.players).filter(
             player => !this.gameState.players[player].isWerewolf
         )
         const privilegedMessage = new GameController.GameControllerMessage(privilegedRecipients, privilegedPayload)
@@ -415,7 +415,7 @@ GameController.GameController = class {
         this.gameState.players[player].isAlive = false
     }
     checkGameOver(){
-        const livingVillagers = this.gameState.players.keys.filter(
+        const livingVillagers = Object.keys(this.gameState.players).filter(
             player => !this.gameState.players[player].isWerewolf && this.gameState.players[player].isAlive
         )
         const numLivingVillagers = livingVillagers.length
@@ -428,7 +428,7 @@ GameController.GameController = class {
                 Using default computed value instead.`)
             this.numWerewolves = Math.floor(Math.sqrt(this.totalPlayers))
         }
-        const playerNamesArray = this.gameState.players.keys()
+        const playerNamesArray = Object.keys(this.gameState.players)
         Util.shuffle(playerNamesArray)
         for(var i = 0; i < this.numWerewolves; i++){
             this.gameState.players[playerNamesArray[i]].isWerewolf = true
@@ -437,7 +437,7 @@ GameController.GameController = class {
         for(var player of playerNamesArray){
             this.livingPlayersCache.add(player)
         }
-        this.gameState.phase = Shared.Phases.STARTED
+        this.gameState.phase = SharedLibrary.Phases.STARTED
         return this.gameStateUpdateAll()
     }
 }

@@ -41,8 +41,8 @@ Shared.ClientMessageType = {
 }
 
 Shared.ServerMessageType = {
-    GAMESTATEINFO = "gameStateInfo",
-    ACKNOWLEDGEMENT = "acknoledgement",
+    GAMESTATEINFO: "gameStateInfo",
+    ACKNOWLEDGEMENT: "acknoledgement",
     VOTECAST: "voteCast",
     PLAYERJOINED: "playerJoined",
     PLAYERLEFT: "playerLeft"
@@ -57,7 +57,7 @@ Shared.PlayerDetails = class {
 
 Shared.GameState = class {
     constructor(){
-        this.phase = Phases.WAITING
+        this.phase = Shared.Phases.WAITING
         this.players = {} // player name -> PlayerDetails object
         this.votes = {} // player name -> value; true = yea, false = nay
         this.acks = new Set() // acknowledgements for information displayed in certain phases
@@ -65,7 +65,4 @@ Shared.GameState = class {
     }
 }
 
-// export only valid server side
-if(typeof window === "undefined"){
-    module.exports = Shared
-}
+module.exports = Shared

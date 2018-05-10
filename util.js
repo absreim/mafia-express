@@ -15,7 +15,4 @@ Util.shuffle = function (a) {
     return a;
 }
 
-// Only export module for server-side code, else it'll result in an error client-side
-if (typeof window === 'undefined') {
-    module.exports = Util;
-}
+module.exports = Util
