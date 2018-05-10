@@ -12,6 +12,7 @@ Util.shuffle = function (a) {
         a[i] = a[j];
         a[j] = x;
     }
+    return a;
 }
 
 // Only export module for server-side code, else it'll result in an error client-side
