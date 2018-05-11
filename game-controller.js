@@ -34,7 +34,7 @@ GameController.GameController = class {
                 return this.initializeGame()
             }
             else{
-                const recipients = Object.keys(this.gameState.player) // exclude player that just joined
+                const recipients = Object.keys(this.gameState.players) // exclude player that just joined
                 this.gameState.players[playerName] = new SharedLibrary.PlayerDetails(false)
                 const payload =
                     {
@@ -347,7 +347,7 @@ GameController.GameController = class {
     the identity of the werewolf. If calling this function before game has started,
     isPrivileged must be false. */
     gameStateMessage(isPrivileged){
-        const gameStateCopy = new GameState()
+        const gameStateCopy = new SharedLibrary.GameState()
         gameStateCopy.phase = this.gameState.phase
         gameStateCopy.chosenPlayer = this.gameState.chosenPlayer
         for (var player in this.gameState.votes){
