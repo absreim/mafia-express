@@ -17,7 +17,7 @@ GameController.GameControllerMessage = class {
 /* Represents a single game instance. */
 GameController.GameController = class {
     /* numWerewolves should be less than half of total players.
-    Minimum totalPlayers in a game is 3. */
+    Minimum totalPlayers in a game is 4. */
     constructor(totalPlayers, numWerewolves){
         this.gameState = new SharedLibrary.GameState()
         this.totalPlayers = totalPlayers
@@ -108,17 +108,17 @@ GameController.GameController = class {
         }
     }
     voteCastHandler(sendingPlayer, choice){
-        if(sendingPlayer in votes){
+        if(sendingPlayer in this.gameState.votes){
             console.log("Warning: Vote cast message received for player that already voted.")
             return null
         }
-        if(!(livingPlayersCache.has(sendingPlayer))){
+        if(!(this.livingPlayersCache.has(sendingPlayer))){
             console.log("Warning: Vote cast message received for player that is dead.")
             return null
         }
-        this.votes[sendingPlayer] = choice
-        if(this.phase == SharedLibrary.Phases.DAYTIMEVOTING){
-            if(Object.keys(this.votes).length == this.livingPlayersCache.size){
+        this.gameState.votes[sendingPlayer] = choice
+        if(this.gameState.phase == SharedLibrary.Phases.DAYTIMEVOTING){
+            if(Object.keys(this.gameState.votes).length == this.livingPlayersCache.size){
                 if(this.countVotes()){
                     this.killPlayer(this.gameState.chosenPlayer)
                     if(this.checkGameOver()){
@@ -146,9 +146,9 @@ GameController.GameController = class {
                 return [new GameController.GameControllerMessage(recipients, payload)]
             }
         }
-        else if(this.phase == SharedLibrary.Phases.NIGHTTIMEVOTING){
+        else if(this.gameState.phase == SharedLibrary.Phases.NIGHTTIMEVOTING){
             if(this.gameState.players[sendingPlayer].isWerewolf){
-                if(Object.keys(this.votes).length == this.livingWerewolves().length){
+                if(Object.keys(this.gameState.votes).length == this.livingWerewolves().length){
                     if(this.countVotes()){
                         this.killPlayer(this.gameState.chosenPlayer)
                         if(this.checkGameOver()){
@@ -217,7 +217,7 @@ GameController.GameController = class {
                 }
             case SharedLibrary.Phases.ENDOFNIGHT:
                 this.gameState.acks.add(sendingPlayer)
-                if(this.gameState.acks.size == this.livingWerewolves().length){
+                if(this.gameState.acks.size == this.livingPlayersCache.size){
                     this.gameState.phase = SharedLibrary.Phases.DAYTIME
                     this.gameState.chosenPlayer = null
                     return this.gameStateUpdateAll()
@@ -285,7 +285,7 @@ GameController.GameController = class {
                 return null
         }
     }
-    suggestHander(sendingPlayer, target){
+    suggestHandler(sendingPlayer, target){
         switch(this.gameState.phase){
             case SharedLibrary.Phases.DAYTIME:
                 if(this.livingPlayersCache.has(sendingPlayer)){
@@ -398,6 +398,7 @@ GameController.GameController = class {
     }
     /* Analyze votes, returning whether there is a majority of yea votes.*/
     countVotes(){
+        // true means yea, false means nay
         var yeaCount = 0
         var nayCount = 0
         for (var player in this.gameState.votes){
@@ -419,14 +420,14 @@ GameController.GameController = class {
             player => !this.gameState.players[player].isWerewolf && this.gameState.players[player].isAlive
         )
         const numLivingVillagers = livingVillagers.length
-        const numLivingWerewolves = livingWerewolves().length
+        const numLivingWerewolves = this.livingWerewolves().length
         return numLivingWerewolves == 0 || numLivingVillagers <= numLivingWerewolves
     }
     initializeGame(){
         if(this.numWerewolves / this.totalPlayers >= 0.5){
             console.log(`Warning: attempt to start game half or more of the players as werewolves. 
                 Using default computed value instead.`)
-            this.numWerewolves = Math.floor(Math.sqrt(this.totalPlayers))
+            this.numWerewolves = Math.floor(Math.sqrt(this.totalPlayers)) - 1
         }
         const playerNamesArray = Object.keys(this.gameState.players)
         Util.shuffle(playerNamesArray)

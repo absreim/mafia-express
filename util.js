@@ -15,4 +15,8 @@ Util.shuffle = function (a) {
     return a;
 }
 
+Util.getRandomInt = function (max) {
+    return Math.floor(Math.random() * Math.floor(max));
+}
+
 module.exports = Util
