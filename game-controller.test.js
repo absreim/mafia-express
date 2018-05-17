@@ -1,6 +1,6 @@
 const GameController = require("./game-controller.js")
 const Shared = require("./shared.js")
-const Util = require("./util.js")
+const CommonAlgos = require("./common-algos.js")
 
 const totalPlayers = 4
 const numWerewolves = 2
@@ -54,7 +54,7 @@ describe("After all players acknowledged STARTED phase.", () => {
                 player => !gc.gameState.players[player].isWerewolf && 
                     gc.gameState.players[player].isAlive
             )
-            const victimNumber = Util.getRandomInt(potentialVictims.length)
+            const victimNumber = CommonAlgos.getRandomInt(potentialVictims.length)
             const victim = potentialVictims[victimNumber]
             gc.handleMessage({
                     type: Shared.ClientMessageType.SUGGESTTARGET,
@@ -149,7 +149,7 @@ describe("After all players acknowledged STARTED phase.", () => {
                                     player => !gc.gameState.players[player].isWerewolf && 
                                         gc.gameState.players[player].isAlive
                                 )
-                                const victimNumber = Util.getRandomInt(potentialVictims.length)
+                                const victimNumber = CommonAlgos.getRandomInt(potentialVictims.length)
                                 const victim = potentialVictims[victimNumber]
                                 gc.handleMessage({
                                         type: Shared.ClientMessageType.SUGGESTTARGET,
