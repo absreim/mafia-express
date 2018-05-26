@@ -19,6 +19,9 @@ GameController.GameController = class {
     /* numWerewolves should be less than half of total players.
     Minimum totalPlayers in a game is 4. */
     constructor(totalPlayers, numWerewolves){
+        if(totalPlayers < 4){
+            throw new RangeError("Total players in a game must be at least 4.")
+        }
         this.gameState = new Shared.GameState()
         this.totalPlayers = totalPlayers
         this.numWerewolves = numWerewolves
@@ -425,9 +428,9 @@ GameController.GameController = class {
     }
     initializeGame(){
         if(this.numWerewolves / this.totalPlayers >= 0.5){
-            console.log(`Warning: attempt to start game half or more of the players as werewolves. 
-                Using default computed value instead.`)
             this.numWerewolves = Math.floor(Math.sqrt(this.totalPlayers)) - 1
+            console.log(`Warning: attempt to start game half or more of the players as werewolves. 
+            Using default computed value of ${this.numWerewolves} instead.`)
         }
         const playerNamesArray = Object.keys(this.gameState.players)
         CommonAlgos.shuffle(playerNamesArray)
