@@ -5,67 +5,73 @@ const Authentication = class {
     constructor(db){
         this.db = db
     }
-    createUser(username, password){
+    createUser(username, password, callback){
+        const database = this.db
         bcrypt.hash(password, saltRounds, function(err, hash){
             if(err){
-                throw new Error("Error computing password hash.")
+                callback(err)
             }
             else{
-                try{
-                    db.none("INSERT INTO accounts (username, hash) VALUES ($1, $2)",[username, hash])
-                }
-                catch(e){
-                    throw new Error("Error inserting user info into database.")
-                }
+                database.none("INSERT INTO accounts (username, hash) VALUES ($1, $2)",[username, hash]).then(function(data){
+                    callback(null)
+                }).catch(function(err){
+                    callback(err)
+                })
             }
         })
     }
-    userExists(username){
-        try{
-            const rows = yield db.oneOrNone("SELECT FROM accounts WHERE username = $1",[username])
-            return rows.length == 1
-        }
-        catch(e){
-            throw new Error("Error querying database for the existence of a user.")
-        }
+    userExists(username, callback){
+        this.db.oneOrNone("SELECT FROM accounts WHERE username = $1",[username]).then(function(data){
+            const result = data != null
+            callback(null, result)
+        }).catch(function(err){
+            callback(err, null)
+        })
     }
-    changePassword(username, password){
+    changePassword(username, password, callback){
+        const database = this.db
         bcrypt.hash(password, saltRounds, function(err, hash){
             if(err){
-                throw new Error("Error computing password hash.")
+                callback(err)
             }
             else{
-                try{
-                    db.none("UPDATE accounts SET hash = $1 WHERE username = $2",[hash,username])
-                }
-                catch(e){
-                    throw new Error("Error updating password hash in database.")
-                }
+                database.none("UPDATE accounts SET hash = $1 WHERE username = $2",[hash,username]).then(function(data){
+                    callback(null)
+                }).catch(
+                    function(err){
+                        callback(err)
+                    }
+                )
             }
         })
     }
-    deleteUser(username){
-        try{
-            db.none("DELETE FROM accounts WHERE username = $1",[username])
-        }
-        catch(e){
-            throw new Error("Error deleting user from database.")
-        }
-    }
-    authenticate(username, password){
-        var hash = null
-        try{
-            hash = yield db.one("SELECT hash FROM accounts WHERE username = $1",[username])
-        }
-        catch(e){
-            throw new Error("Error querying database for password hash.")
-        }
-        return bcrypt.compare(password, hash, function(err, res){
-            if(err){
-                throw new Error("Error occurred while comparing password hash.")
+    deleteUser(username, callback){
+        this.db.none("DELETE FROM accounts WHERE username = $1",[username]).then(
+            function(data){
+                callback(null)
             }
-            return res
-        })
+        ).catch(
+            function(err){
+                callback(err)
+            }
+        )
+    }
+    authenticate(username, password, callback){
+        this.db.one("SELECT hash FROM accounts WHERE username = $1",[username]).then(
+            function(data){
+                console.log(data)
+                bcrypt.compare(password, data.hash, function(err, result){
+                    if(err){
+                        callback(err, null)
+                    }
+                    callback(null, result)
+                })
+            }
+        ).catch(
+            function(err){
+                callback(err, null)
+            }
+        )
     }
 }
 
