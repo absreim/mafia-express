@@ -68,4 +68,11 @@ Shared.GameState = class {
     }
 }
 
+/* Details of session state returned to the client. */
+Shared.LoginState = {
+    LOGGEDIN: "loggedIn",
+    LOGGEDOUT: "loggedOut",
+    ERROR: "error"
+}
+
 module.exports = Shared

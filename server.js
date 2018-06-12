@@ -5,6 +5,7 @@ const session = require("express-session")
 const pgp = require("pg-promise")()
 const pgSession = require("connect-pg-simple")(session)
 const Authentication = require("./authentication.js")
+const Shared = require("./shared.js")
 
 const connection = {
     host: "localhost",
@@ -27,7 +28,7 @@ app.use(session({
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: false }))
 
-app.post("/login", function(req, res, next){
+app.post("/login", function(req, res){
     if(req.session){
         res.status(401).send("Already logged in. Please log out first.")
     }
@@ -50,7 +51,7 @@ app.post("/login", function(req, res, next){
     }
 })
 
-app.post("/logout", function(req, res, next){
+app.post("/logout", function(req, res){
     if(req.session){
         req.session.destroy(function(err){
             if(err){
@@ -66,7 +67,7 @@ app.post("/logout", function(req, res, next){
     }
 })
 
-app.post("/signup", function(req, res, next){
+app.post("/signup", function(req, res){
     if(req.session){
         res.status(401).send("Already logged in. Please log out first.")
     }
@@ -97,7 +98,7 @@ app.post("/signup", function(req, res, next){
     }
 })
 
-app.post("/manage", function(req, res, next){
+app.post("/manage", function(req, res){
     if(req.session){
         if(req.body.type == "DELETE"){
             if(req.session.userId){
@@ -143,5 +144,30 @@ app.post("/manage", function(req, res, next){
     }
 })
 
-app.get('/', (req, res) => res.send("Hello, World!"))
-app.listen(3000, () => console.log('Example app listening on port 3000!'))
+app.get("/loginstatus", function(req, res){
+    if(req.session){
+        if(req.session.userId){
+            res.status(200).send({
+                status: Shared.LoginState.LOGGEDIN,
+                username: req.session.userId,
+                details: "Logged in properly."
+            })
+        }
+        else{
+            res.status(200).send({
+                status: Shared.LoginState.ERROR,
+                username: null,
+                details: "Session exists but username missing. Please log out and log in again."
+            })
+        }
+    }
+    else{
+        res.status(200).send({
+            status: Shared.LoginState.LOGGEDOUT,
+            username: null,
+            details: "Not logged in."
+        })
+    }
+})
+
+app.listen(3001, () => console.log('Mafia server listening on port 3000!'))

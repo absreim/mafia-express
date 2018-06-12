@@ -1,7 +1,7 @@
 {
-  "name": "mafia-first-pass",
+  "name": "mafia-express",
   "version": "1.0.0",
-  "description": "mafia game, backend and frontend",
+  "description": "mafia game backend",
   "main": "server.js",
   "scripts": {
     "test": "jest"
@@ -9,7 +9,7 @@
   "author": "Brook Li",
   "repository": {
     "type": "git",
-    "url": "https://github.com/absreim/mafia-first-pass.git"
+    "url": "https://github.com/absreim/mafia-express.git"
   },
   "license": "ISC",
   "dependencies": {
