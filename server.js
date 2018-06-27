@@ -148,14 +148,14 @@ app.get("/loginstatus", function(req, res){
     if(req.session){
         if(req.session.userId){
             res.status(200).send({
-                status: Shared.LoginState.LOGGEDIN,
+                loginStatus: Shared.LoginState.LOGGEDIN,
                 username: req.session.userId,
                 details: "Logged in properly."
             })
         }
         else{
             res.status(200).send({
-                status: Shared.LoginState.ERROR,
+                loginStatus: Shared.LoginState.ERROR,
                 username: null,
                 details: "Session exists but username missing. Please log out and log in again."
             })
@@ -163,7 +163,7 @@ app.get("/loginstatus", function(req, res){
     }
     else{
         res.status(200).send({
-            status: Shared.LoginState.LOGGEDOUT,
+            loginStatus: Shared.LoginState.LOGGEDOUT,
             username: null,
             details: "Not logged in."
         })
