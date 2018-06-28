@@ -69,24 +69,24 @@ app.post("/logout", function(req, res){
 
 app.post("/signup", function(req, res){
     if(req.session){
-        res.status(401).send("Already logged in. Please log out first.")
+        res.status(401).send({outcome: Shared.AccountCreateOutcome.LOGGEDIN})
     }
     else if(req.body.username && req.body.password){
         auth.userExists(req.body.username, function(err, result){
             if(err){
-                res.status(500).send("Internal server error attempting to check for existence of user.")
+                res.status(500).send({outcome: Shared.AccountCreateOutcome.INTERNALERROR})
             }
             else{
                 if(result){
-                    res.status(401).send("User with specified name already exists.")
+                    res.status(401).send({outcome: Shared.AccountCreateOutcome.EXISTS})
                 }
                 else{
                     auth.createUser(req.body.username, req.body.password, function(err){
                         if(err){
-                            res.status(500).send("Internal server error creating user account.")
+                            res.status(500).send({outcome: Shared.AccountCreateOutcome.INTERNALERROR})
                         }
                         else{
-                            res.status(200).send("Account created successfully.")
+                            res.status(200).send({outcome: Shared.AccountCreateOutcome.SUCCESS})
                         }
                     })
                 }
@@ -94,7 +94,7 @@ app.post("/signup", function(req, res){
         })
     }
     else{
-        res.status(400).send("Specify a username and password in the request body to sign up.")
+        res.status(400).send({outcome: Shared.AccountCreateOutcome.MISSINGINFO})
     }
 })
 

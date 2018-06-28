@@ -75,4 +75,13 @@ Shared.LoginState = {
     ERROR: "error"
 }
 
+/* Responses to account creation (/signup) requests */
+Shared.AccountCreateOutcome = {
+    LOGGEDIN: "loggedIn", // Already logged in
+    INTERNALERROR: "internalError",
+    EXISTS: "exists", // account with specified name already exists
+    SUCCESS: "success",
+    MISSINGINFO: "missingInfo" // required fields not present in body
+}
+
 module.exports = Shared
