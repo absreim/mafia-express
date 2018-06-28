@@ -68,10 +68,7 @@ app.post("/logout", function(req, res){
 })
 
 app.post("/signup", function(req, res){
-    if(req.session){
-        res.status(401).send({outcome: Shared.AccountCreateOutcome.LOGGEDIN})
-    }
-    else if(req.body.username && req.body.password){
+    if(req.body.username && req.body.password){
         auth.userExists(req.body.username, function(err, result){
             if(err){
                 res.status(500).send({outcome: Shared.AccountCreateOutcome.INTERNALERROR})

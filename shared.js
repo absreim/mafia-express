@@ -77,7 +77,6 @@ Shared.LoginState = {
 
 /* Responses to account creation (/signup) requests */
 Shared.AccountCreateOutcome = {
-    LOGGEDIN: "loggedIn", // Already logged in
     INTERNALERROR: "internalError",
     EXISTS: "exists", // account with specified name already exists
     SUCCESS: "success",
