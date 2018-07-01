@@ -30,40 +30,40 @@ app.use(bodyParser.urlencoded({ extended: false }))
 
 app.post("/login", function(req, res){
     if(req.session){
-        res.status(401).send("Already logged in. Please log out first.")
+        res.status(401).send({outcome: Shared.LoginOutcome.LOGGEDIN})
     }
     else if(req.body.username && req.body.password){
         auth.authenticate(req.body.username, req.body.password, function(err, data){
             if(err){
-                res.status(500).send("Internal server error when attempting login.")
+                res.status(500).send({outcome: Shared.LoginOutcome.INTERNALERROR})
             }
             if(data){
                 req.session.userId = req.body.username
-                res.status(200).send("Login successful.")
+                res.status(200).send({outcome: Shared.LoginOutcome.SUCCESS})
             }
             else{
-                res.status(404).send("Invalid username or password.")
+                res.status(404).send({outcome: Shared.LoginOutcome.WRONGCREDENTIALS})
             }
         })
     }
     else{
-        res.status(400).send("Specify a username and password in the request body to log in.")
+        res.status(400).send({outcome: Shared.LoginOutcome.MISSINGINFO})
     }
 })
 
-app.post("/logout", function(req, res){
+app.get("/logout", function(req, res){
     if(req.session){
         req.session.destroy(function(err){
             if(err){
-                res.status(500).send("Internal server error when attempting logout.")
+                res.status(500).send({outcome: Shared.LogoutOutcome.INTERNALERROR})
             }
             else{
-                res.status(200).send("Logout successful.")
+                res.status(200).send({outcome: Shared.LogoutOutcome.SUCCESS})
             }
         })
     }
     else{
-        res.status(403).send("You are not logged in.")
+        res.status(403).send({outcome: Shared.LogoutOutcome.NOTLOGGEDIN})
     }
 })
 
@@ -95,49 +95,88 @@ app.post("/signup", function(req, res){
     }
 })
 
-app.post("/manage", function(req, res){
+app.post("/deleteAccount", function(req,res){
     if(req.session){
-        if(req.body.type == "DELETE"){
-            if(req.session.userId){
-                auth.deleteUser(req.session.userId, function(err){
+        if(req.session.userId){
+            if(req.body.password){
+                auth.authenticate(req.session.userId, req.body.password, function(err, result){
                     if(err){
-                        res.status(500).send("Internal server error encountered while attempting to delete account.")
+                        console.log("Error encountered when attempting authentication for account deletion: " + err)
+                        res.status(500).send({outcome: Shared.AccountDeleteOutcome.INTERNALERROR})
                     }
                     else{
-                        req.session.destroy(function(err){
-                            if(err){
-                                res.status(500).send(`Account deleted successfully, but internal server
-                                 error encountered while logging out.`)
-                            }
-                            else{
-                                res.status(200).send("Account deleted successfully and user logged out.")
-                            }
-                        })
+                        if(result){
+                            auth.deleteUser(req.session.userId, function(err){
+                                if(err){
+                                    console.log("Error encountered when attempting account deletion: " + err)
+                                    res.status(500).send({outcome: Shared.AccountDeleteOutcome.INTERNALERROR})
+                                }
+                                else{
+                                    req.session.destroy(function(err){
+                                        if(err){
+                                            console.log("Error destroying session after deleting account: " + err)
+                                        }
+                                        res.status(200).send({outcome: Shared.AccountDeleteOutcome.SUCCESS})
+                                    })
+                                }
+                            })
+                        }
+                        else{
+                            res.status(404).send({outcome: Shared.AccountDeleteOutcome.WRONGPASSWORD})
+                        }
                     }
                 })
             }
             else{
-                res.status(500).send("Internal server error retrieving session information.")
+                res.status(400).send({outcome: Shared.AccountDeleteOutcome.MISSINGINFO})
             }
         }
-        else if(req.body.type == "CHANGEPASSWORD"){
-            if(req.body.username && req.body.newPassword){
-                auth.changePassword(req.body.username, req.body.newPassword, function(err){
-                    if(err){
-                        res.status(500).send("Internal server error encountered while attempting to change password.")
-                    }
-                    else{
-                        res.status(200).send("Password changed successfully.")
-                    }
-                })
-            }
-            else{
-                res.status(400).send("To change password, username and newPassword must specified in request body.")
-            }
+        else{
+            res.status(500).send({outcome: Shared.AccountDeleteOutcome.INTERNALERROR})
         }
     }
     else{
-        res.status(403).send("You must be logged in to manage an account.")
+        res.status(403).send({outcome: Shared.AccountDeleteOutcome.NOTLOGGEDIN})
+    }
+})
+
+app.post("/changePassword", function(req,res){
+    if(req.session){
+        if(req.session.userId){
+            if(req.body.oldPassword && req.body.newPassword){
+                auth.authenticate(req.session.userId, req.body.oldPassword, function(err, result){
+                    if(err){
+                        console.log("Error encountered when attempting authentication for password change: " + err)
+                        res.status(500).send({outcome: Shared.ChangePasswordOutcome.INTERNALERROR})
+                    }
+                    else{
+                        if(result){
+                            auth.changePassword(req.session.userId, req.body.newPassword, function(err){
+                                if(err){
+                                    console.log("Error encountered when attempting password change: " + err)
+                                    res.status(500).send({outcome: Shared.ChangePasswordOutcome.INTERNALERROR})
+                                }
+                                else{
+                                    res.status(200).send({outcome: Shared.ChangePasswordOutcome.SUCCESS})
+                                }
+                            })
+                        }
+                        else{
+                            res.status(404).send({outcome: Shared.ChangePasswordOutcome.WRONGPASSWORD})
+                        }
+                    }
+                })
+            }
+            else{
+                res.status(400).send({outcome: Shared.ChangePasswordOutcome.MISSINGINFO})
+            }
+        }
+        else{
+            res.status(500).send({outcome: Shared.ChangePasswordOutcome.INTERNALERROR})
+        }
+    }
+    else{
+        res.status(403).send({outcome: Shared.ChangePasswordOutcome.NOTLOGGEDIN})
     }
 })
 
@@ -145,14 +184,14 @@ app.get("/loginstatus", function(req, res){
     if(req.session){
         if(req.session.userId){
             res.status(200).send({
-                loginStatus: Shared.LoginState.LOGGEDIN,
+                loginStatus: Shared.LoginStatus.LOGGEDIN,
                 username: req.session.userId,
                 details: "Logged in properly."
             })
         }
         else{
             res.status(200).send({
-                loginStatus: Shared.LoginState.ERROR,
+                loginStatus: Shared.LoginStatus.ERROR,
                 username: null,
                 details: "Session exists but username missing. Please log out and log in again."
             })
@@ -160,7 +199,7 @@ app.get("/loginstatus", function(req, res){
     }
     else{
         res.status(200).send({
-            loginStatus: Shared.LoginState.LOGGEDOUT,
+            loginStatus: Shared.LoginStatus.LOGGEDOUT,
             username: null,
             details: "Not logged in."
         })

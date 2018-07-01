@@ -69,7 +69,7 @@ Shared.GameState = class {
 }
 
 /* Details of session state returned to the client. */
-Shared.LoginState = {
+Shared.LoginStatus = {
     LOGGEDIN: "loggedIn",
     LOGGEDOUT: "loggedOut",
     ERROR: "error"
@@ -81,6 +81,37 @@ Shared.AccountCreateOutcome = {
     EXISTS: "exists", // account with specified name already exists
     SUCCESS: "success",
     MISSINGINFO: "missingInfo" // required fields not present in body
+}
+
+/* Responses to logout requests */
+Shared.LogoutOutcome = {
+    NOTLOGGEDIN: "notLoggedIn",
+    INTERNALERROR: "internalError",
+    SUCCESS: "success"
+}
+
+Shared.AccountDeleteOutcome = {
+    NOTLOGGEDIN: "notLoggedIn",
+    INTERNALERROR: "internalError",
+    MISSINGINFO: "missingInfo",
+    WRONGPASSWORD: "wrongPassword",
+    SUCCESS: "success"
+}
+
+Shared.LoginOutcome = {
+    LOGGEDIN: "loggedIn", // already logged in
+    INTERNALERROR: "internalError",
+    MISSINGINFO: "missingInfo",
+    WRONGCREDENTIALS: "wrongCredentials", // could be wrong username, password, or both
+    SUCCESS: "success"
+}
+
+Shared.ChangePasswordOutcome = {
+    NOTLOGGEDIN: "notLoggedIn",
+    INTERNALERROR: "internalError",
+    MISSINGINFO: "missingInfo",
+    WRONGPASSWORD: "wrongPassword",
+    SUCCESS: "success"
 }
 
 module.exports = Shared
