@@ -1,4 +1,5 @@
 const express = require("express")
+const cors = require("cors")
 const app = express()
 const bodyParser = require("body-parser")
 const session = require("express-session")
@@ -17,6 +18,13 @@ const connection = {
 const db = pgp(connection)
 const sessionStore = new pgSession({pgPromise: db})
 const auth = new Authentication(db)
+
+const corsOptions = {
+    origin: "http://localhost:3000",
+    methods: "GET,POST"
+}
+
+app.use(cors(corsOptions))
 
 app.use(session({
    secret: "secret",
@@ -206,4 +214,4 @@ app.get("/loginstatus", function(req, res){
     }
 })
 
-app.listen(3001, () => console.log('Mafia server listening on port 3000!'))
+app.listen(3001, () => console.log('Mafia server listening on port 3001!'))
