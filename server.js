@@ -9,9 +9,9 @@ const Authentication = require("./authentication.js")
 const Shared = require("./shared.js")
 
 const connection = {
-    host: "localhost",
+    host: "brookli.name",
     port: "5432",
-    database: "mafia_first_pass",
+    database: "mafia_express",
     user: "mafia_server",
     password: "password"
 }
@@ -20,8 +20,9 @@ const sessionStore = new pgSession({pgPromise: db})
 const auth = new Authentication(db)
 
 const corsOptions = {
-    origin: "http://localhost:3000",
-    methods: "GET,POST"
+    origin: "http://brookli.name:3000",
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"]
 }
 
 app.use(cors(corsOptions))
@@ -30,7 +31,8 @@ app.use(session({
    secret: "secret",
    store: sessionStore,
    resave: false,
-   saveUninitialized: false
+   saveUninitialized: false,
+   cookie: {domain: "brookli.name"}
 }))
 
 app.use(bodyParser.json())
@@ -38,40 +40,52 @@ app.use(bodyParser.urlencoded({ extended: false }))
 
 app.post("/login", function(req, res){
     if(req.session){
-        res.status(401).send({outcome: Shared.LoginOutcome.LOGGEDIN})
-    }
-    else if(req.body.username && req.body.password){
-        auth.authenticate(req.body.username, req.body.password, function(err, data){
-            if(err){
-                res.status(500).send({outcome: Shared.LoginOutcome.INTERNALERROR})
-            }
-            if(data){
-                req.session.userId = req.body.username
-                res.status(200).send({outcome: Shared.LoginOutcome.SUCCESS})
+        if(req.session.userId){
+            res.status(401).send({outcome: Shared.LoginOutcome.LOGGEDIN})
+        }
+        else{
+            if(req.body.username && req.body.password){
+                auth.authenticate(req.body.username, req.body.password, function(err, data){
+                    if(err){
+                        res.status(500).send({outcome: Shared.LoginOutcome.INTERNALERROR})
+                    }
+                    if(data){
+                        req.session.userId = req.body.username
+                        res.status(200).send({outcome: Shared.LoginOutcome.SUCCESS})
+                    }
+                    else{
+                        res.status(404).send({outcome: Shared.LoginOutcome.WRONGCREDENTIALS})
+                    }
+                })
             }
             else{
-                res.status(404).send({outcome: Shared.LoginOutcome.WRONGCREDENTIALS})
+                res.status(400).send({outcome: Shared.LoginOutcome.MISSINGINFO})
             }
-        })
+        }
     }
     else{
-        res.status(400).send({outcome: Shared.LoginOutcome.MISSINGINFO})
+        res.status(500).send({outcome: Shared.LoginOutcome.INTERNALERROR})
     }
 })
 
 app.get("/logout", function(req, res){
     if(req.session){
-        req.session.destroy(function(err){
-            if(err){
-                res.status(500).send({outcome: Shared.LogoutOutcome.INTERNALERROR})
-            }
-            else{
-                res.status(200).send({outcome: Shared.LogoutOutcome.SUCCESS})
-            }
-        })
+        if(req.session.userId){
+            req.session.destroy(function(err){
+                if(err){
+                    res.status(500).send({outcome: Shared.LogoutOutcome.INTERNALERROR})
+                }
+                else{
+                    res.status(200).send({outcome: Shared.LogoutOutcome.SUCCESS})
+                }
+            })
+        }
+        else{
+            res.status(403).send({outcome: Shared.LogoutOutcome.NOTLOGGEDIN})
+        }
     }
     else{
-        res.status(403).send({outcome: Shared.LogoutOutcome.NOTLOGGEDIN})
+        res.status(500).send({outcome: Shared.LogoutOutcome.INTERNALERROR})
     }
 })
 
@@ -180,11 +194,11 @@ app.post("/changePassword", function(req,res){
             }
         }
         else{
-            res.status(500).send({outcome: Shared.ChangePasswordOutcome.INTERNALERROR})
+            res.status(403).send({outcome: Shared.ChangePasswordOutcome.NOTLOGGEDIN})
         }
     }
     else{
-        res.status(403).send({outcome: Shared.ChangePasswordOutcome.NOTLOGGEDIN})
+        res.status(500).send({outcome: Shared.ChangePasswordOutcome.INTERNALERROR})
     }
 })
 
@@ -193,23 +207,20 @@ app.get("/loginstatus", function(req, res){
         if(req.session.userId){
             res.status(200).send({
                 loginStatus: Shared.LoginStatus.LOGGEDIN,
-                username: req.session.userId,
-                details: "Logged in properly."
+                username: req.session.userId
             })
         }
         else{
             res.status(200).send({
-                loginStatus: Shared.LoginStatus.ERROR,
-                username: null,
-                details: "Session exists but username missing. Please log out and log in again."
+                loginStatus: Shared.LoginStatus.LOGGEDOUT,
+                username: null
             })
         }
     }
     else{
         res.status(200).send({
-            loginStatus: Shared.LoginStatus.LOGGEDOUT,
-            username: null,
-            details: "Not logged in."
+            loginStatus: Shared.LoginStatus.ERROR,
+            username: null
         })
     }
 })
