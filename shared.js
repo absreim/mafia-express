@@ -114,4 +114,13 @@ Shared.ChangePasswordOutcome = {
     SUCCESS: "success"
 }
 
+Shared.SocketIOEvents = {
+    SYSTEMNOTICE: "systemNotice", // notices from server unrelated to the happneings inside the game
+    CHATMESSAGE: "chatMessage",
+    PRIVILEGEDCHATMESSAGE: "privilegedChatMessage",
+    ALREADYINGAME: "alreadyInGame", // indicates to client that the associated user is already in a game
+    JOINEDNEWGAME: "joinedNewGame", // indicates to client that the associated user has been joined into a new game
+    GAMEACTION: "gameAction" // action related to the context of the game itself
+}
+
 module.exports = Shared

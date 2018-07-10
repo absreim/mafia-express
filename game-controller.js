@@ -26,10 +26,12 @@ GameController.GameController = class {
         this.totalPlayers = totalPlayers
         this.numWerewolves = numWerewolves
         this.livingPlayersCache = null // Set of all players still alive
+        this.gameEndedFlag = false // indicate whether the server should destroy this game instance
     }
     joinPlayer(playerName){
         if(playerName in this.gameState.players){
             console.log("Warning: attempt to join player that is already joined.")
+            return null
         }
         else{
             if(Object.keys(this.gameState.players).length == this.totalPlayers - 1){
@@ -126,17 +128,20 @@ GameController.GameController = class {
                     this.killPlayer(this.gameState.chosenPlayer)
                     if(this.checkGameOver()){
                         this.gameState.phase = Shared.Phases.OVER
+                        this.gameState.acks.clear()
+                        return this.gameOverSummary()
                     }
                     else{
                         this.gameState.phase = Shared.Phases.ENDOFDAY
                         this.gameState.acks.clear()
+                        return this.gameStateUpdateAll()
                     }
                 }
                 else{
                     this.gameState.phase = Shared.Phases.DAYTIMEVOTEFAILED
                     this.gameState.acks.clear()
+                    return this.gameStateUpdateAll()
                 }
-                return this.gameStateUpdateAll()
             }
             else {
                 const recipients = Object.keys(this.gameState.players)
@@ -156,12 +161,14 @@ GameController.GameController = class {
                         this.killPlayer(this.gameState.chosenPlayer)
                         if(this.checkGameOver()){
                             this.gameState.phase = Shared.Phases.OVER
+                            this.gameState.acks.clear()
+                            return this.gameOverSummary()
                         }
                         else{
                             this.gameState.phase = Shared.Phases.ENDOFNIGHT
                             this.gameState.acks.clear()
+                            return this.gameStateUpdateAll()
                         }
-                        return this.gameStateUpdateAll()
                     }
                     else{
                         this.gameState.phase = Shared.Phases.NIGHTTIMEVOTEFAILED
@@ -283,6 +290,14 @@ GameController.GameController = class {
                 else{
                     return null
                 }
+            case Shared.Phases.OVER:
+                this.gameState.acks.add(sendingPlayer)
+                if(this.gameState.acks.size == Object.keys(this.gameState.players).length){
+                    this.gameEndedFlag = true
+                }
+                else{
+                }
+                return null
             default:
                 console.log("Warning: ack received at inappropriate phase.")
                 return null
@@ -385,6 +400,17 @@ GameController.GameController = class {
             }
         return stateInfoPayload
     }
+    gameStateUpdateForPlayer(player){
+        if(player in this.gameState.players){
+            const isPrivileged = this.gameState.players[player].isWerewolf
+            const payload = this.gameStateMessage(isPrivileged)
+            return new [GameController.GameControllerMessage([player], payload)]
+        }
+        else{
+            console.log("Warning: game state update requested for non-existent player.")
+            return null
+        }
+    }
     /* Return an array of messages that updates game state for all players. */
     gameStateUpdateAll(){
         const privilegedPayload = this.gameStateMessage(true)
@@ -398,6 +424,12 @@ GameController.GameController = class {
         const privilegedMessage = new GameController.GameControllerMessage(privilegedRecipients, privilegedPayload)
         const nonPrivilegedMessage = new GameController.GameControllerMessage(nonPrivilegedRecipients, nonPrivilegedPayload)
         return [privilegedMessage, nonPrivilegedMessage]
+    }
+    /* Return a game state update with privileged information for all players. */
+    gameOverSummary(){
+        const recipients = Object.keys(this.gameState.players).slice()
+        const payload = this.gameStateMessage(true)
+        return [new GameController.GameControllerMessage(recipients, payload)]
     }
     /* Analyze votes, returning whether there is a majority of yea votes.*/
     countVotes(){
@@ -418,6 +450,10 @@ GameController.GameController = class {
         this.livingPlayersCache.delete(player)
         this.gameState.players[player].isAlive = false
     }
+    /* Checks for conditions to indicate that either the werewolves or villagers have won.
+    If one side has won, set the game phase should be changed to reflect that. Privileged information
+    should then be revealed to all players. Players need to acknowledge results before "game ended" flag
+    is set to true. */
     checkGameOver(){
         const livingVillagers = Object.keys(this.gameState.players).filter(
             player => !this.gameState.players[player].isWerewolf && this.gameState.players[player].isAlive

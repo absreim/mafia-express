@@ -1,39 +1,48 @@
+const http = require("http")
 const express = require("express")
 const cors = require("cors")
-const app = express()
 const bodyParser = require("body-parser")
-const session = require("express-session")
-const pgp = require("pg-promise")()
+const expressSession = require("express-session")
+const pgPromise = require("pg-promise")()
 const pgSession = require("connect-pg-simple")(session)
-const Authentication = require("./authentication.js")
+const sharedSession = require("express-socket.io-session")
+const socketIo = require("socket.io")
+
 const Shared = require("./shared.js")
+const Authentication = require("./authentication.js")
+const GameController =  require("./game-controller.js")
+
+
+const app = express()
 
 const connection = {
-    host: "brookli.name",
+    host: "localhost",
     port: "5432",
     database: "mafia_express",
     user: "mafia_server",
     password: "password"
 }
-const db = pgp(connection)
+const db = pgPromise(connection)
 const sessionStore = new pgSession({pgPromise: db})
 const auth = new Authentication(db)
 
 const corsOptions = {
-    origin: "http://brookli.name:3000",
+    origin: "http://localhost:3000",
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"]
 }
 
 app.use(cors(corsOptions))
 
-app.use(session({
-   secret: "secret",
-   store: sessionStore,
-   resave: false,
-   saveUninitialized: false,
-   cookie: {domain: "brookli.name"}
-}))
+const session = expressSession({
+    secret: "secret",
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {domain: "localhost"}
+ })
+
+app.use(session)
 
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: false }))
@@ -154,11 +163,11 @@ app.post("/deleteAccount", function(req,res){
             }
         }
         else{
-            res.status(500).send({outcome: Shared.AccountDeleteOutcome.INTERNALERROR})
+            res.status(403).send({outcome: Shared.AccountDeleteOutcome.NOTLOGGEDIN})
         }
     }
     else{
-        res.status(403).send({outcome: Shared.AccountDeleteOutcome.NOTLOGGEDIN})
+        res.status(500).send({outcome: Shared.AccountDeleteOutcome.INTERNALERROR})
     }
 })
 
@@ -225,4 +234,70 @@ app.get("/loginstatus", function(req, res){
     }
 })
 
-app.listen(3001, () => console.log('Mafia server listening on port 3001!'))
+const server = http.Server(app)
+const io = socketIo(server)
+
+io.origins(["localhost:3000"])
+io.use(sharedSession(session))
+
+let currentGame = null // the game currently waiting for players, or null if no such game exists
+const openGames = new Set()
+const userToGameMap = {}
+const userToSocketMap = {}
+
+function processGameControllerResponses(responses){
+    if(responses){
+        for(let response of responses){
+            for(let recipient of response.recipients){
+                let recipientSocket = userToSocketMap[recipient]
+                if(recipientSocket){
+                    recipientSocket.emit(Shared.SocketIOEvents.GAMEACTION, response.payload)
+                }
+                else{
+                    console.log("Warning: tried to send game action message to user \"" + recipient + "\", but that user does not have an associated socket.")
+                }
+            }
+        }
+    }
+}
+
+io.on("connection", function(socket){
+    const username = socket.handshake.session.userId
+    if(username){
+        userToSocketMap[username] = socket
+        socket.on("disconnect", function(){
+            delete userToSocketMap[username]
+        })
+        socket.on(Shared.SocketIOEvents.GAMEACTION, function(data){
+            const usersGame = userToGameMap[username]
+            if(usersGame){
+                processGameControllerResponses(usersGame.handleMessage(data, username))
+            }
+            else{
+                socket.emit(Shared.SocketIOEvents.SYSTEMNOTICE, "Received game action message, but you do not appear to be in a game.")
+                console.log("Warning: game action message received from user not in a game.")
+            }
+        })
+        if(username in userToGameMap){
+            processGameControllerResponses(userToGameMap[username].gameStateUpdateForPlayer(username))
+        }
+        else{
+            if(currentGame){
+                processGameControllerResponses(currentGame.joinPlayer(username))
+            }
+            else{
+                const newGame = new GameController.GameController(6,2)
+                openGames.add(newGame)
+                processGameControllerResponses(newGame.joinPlayer(username))
+                currentGame = newGame
+            }
+        }
+    }
+    else{
+        socket.emit(Shared.SocketIOEvents.SYSTEMNOTICE, "Unable to determine your user account. Disconnecting.")
+        socket.disconnect(true)
+        console.log("Warning: user connected without session information.")
+    }
+})
+
+server.listen(3001, () => console.log('Mafia server listening on port 3001!'))
