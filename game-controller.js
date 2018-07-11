@@ -18,17 +18,24 @@ GameController.GameControllerMessage = class {
 GameController.GameController = class {
     /* numWerewolves should be less than half of total players.
     Minimum totalPlayers in a game is 4. */
-    constructor(totalPlayers, numWerewolves){
+    constructor(totalPlayers, numWerewolves, gameStartCallback, gameEndCallback){
         if(totalPlayers < 4){
             throw new RangeError("Total players in a game must be at least 4.")
+        }
+        if(totalPlayers - totalWerewolves < 2){
+            throw new RangeError("There must be at least 2 more villagers than werewolves.")
         }
         this.gameState = new Shared.GameState()
         this.totalPlayers = totalPlayers
         this.numWerewolves = numWerewolves
+        this.gameStartCallback = gameStartCallback
+        this.gameEndCallback = gameEndCallback
         this.livingPlayersCache = null // Set of all players still alive
-        this.gameEndedFlag = false // indicate whether the server should destroy this game instance
     }
     joinPlayer(playerName){
+        if(this.gameState.phase != Shared.Phases.WAITING){
+            throw new Error("Players can join only before the game has started.") 
+        }
         if(playerName in this.gameState.players){
             console.log("Warning: attempt to join player that is already joined.")
             return null
@@ -39,8 +46,8 @@ GameController.GameController = class {
                 return this.initializeGame()
             }
             else{
-                const recipients = Object.keys(this.gameState.players) // exclude player that just joined
                 this.gameState.players[playerName] = new Shared.PlayerDetails(false)
+                const recipients = Object.keys(this.gameState.players) // include player that just joined for the purpose of confirmation
                 const payload =
                     {
                         type: Shared.ServerMessageType.PLAYERJOINED,
@@ -54,9 +61,13 @@ GameController.GameController = class {
         }
     }
     removePlayer(playerName){
+        if(this.gameState.phase != Shared.Phases.WAITING){
+            throw new Error("Players can leave only before the game has started.") 
+        }
         if(playerName in this.gameState.players){
-            delete this.gameState.players[playerName]
+            // include the leaving player in the message for the sake of confirmation
             const recipients = Object.keys(this.gameState.player)
+            delete this.gameState.players[playerName]
             const payload =
             {
                 type: Shared.ServerMessageType.PLAYERLEFT,
@@ -285,19 +296,32 @@ GameController.GameController = class {
                 this.gameState.acks.add(sendingPlayer)
                 if(this.gameState.acks.size == Object.keys(this.gameState.players).length){
                     this.gameState.phase = Shared.Phases.NIGHTTIME
+                    this.gameStartCallback()
                     return this.gameStateUpdateAll()
                 }
                 else{
-                    return null
+                    const recipients = Object.keys(this.gameState.players)
+                    const payload = 
+                        {
+                            type: Shared.ServerMessageType.ACKNOWLEDGEMENT,
+                            playerName: sendingPlayer
+                        }
+                    return [new GameController.GameControllerMessage(recipients, payload)]
                 }
             case Shared.Phases.OVER:
                 this.gameState.acks.add(sendingPlayer)
                 if(this.gameState.acks.size == Object.keys(this.gameState.players).length){
-                    this.gameEndedFlag = true
+                    this.gameEndCallback(Object.keys(this.gameState.players))
                 }
                 else{
+                    const recipients = Object.keys(this.gameState.players)
+                    const payload = 
+                        {
+                            type: Shared.ServerMessageType.ACKNOWLEDGEMENT,
+                            playerName: sendingPlayer
+                        }
+                    return [new GameController.GameControllerMessage(recipients, payload)]
                 }
-                return null
             default:
                 console.log("Warning: ack received at inappropriate phase.")
                 return null
@@ -348,7 +372,7 @@ GameController.GameController = class {
     /* Placeholder. Move this code to the function that initlializes the set of players. */
     livingPlayers(){
         const livingPlayers = new Set()
-        for (var i in this.gameState.players){
+        for (let i in this.gameState.players){
             if(this.gameState.players[i].isAlive){
                 this.livingPlayers.add(i)
             }
@@ -368,11 +392,11 @@ GameController.GameController = class {
         const gameStateCopy = new Shared.GameState()
         gameStateCopy.phase = this.gameState.phase
         gameStateCopy.chosenPlayer = this.gameState.chosenPlayer
-        for (var player in this.gameState.votes){
+        for (let player in this.gameState.votes){
             gameStateCopy.votes[player] = this.gameState.votes[player]
         }
         if(isPrivileged){
-            for(var player in this.gameState.players){
+            for(let player in this.gameState.players){
                 if(this.gameState.players[player]){
                     gameStateCopy.players[player] = new Shared.PlayerDetails(this.gameState.players[player].isWerewolf)
                     gameStateCopy.players[player].isAlive = this.gameState.players[player].isAlive
@@ -383,7 +407,7 @@ GameController.GameController = class {
             }
         }
         else{ // to simulate lack to privileged information, all players are marked as villagers
-            for(var player in this.gameState.players){
+            for(let player in this.gameState.players){
                 if(this.gameState.players[player]){
                     gameStateCopy.players[player] = new Shared.PlayerDetails(false)
                     gameStateCopy.players[player].isAlive = this.gameState.players[player].isAlive
@@ -434,9 +458,9 @@ GameController.GameController = class {
     /* Analyze votes, returning whether there is a majority of yea votes.*/
     countVotes(){
         // true means yea, false means nay
-        var yeaCount = 0
-        var nayCount = 0
-        for (var player in this.gameState.votes){
+        let yeaCount = 0
+        let nayCount = 0
+        for (let player in this.gameState.votes){
             if(this.gameState.votes[player]){
                 yeaCount++
             }
@@ -470,11 +494,11 @@ GameController.GameController = class {
         }
         const playerNamesArray = Object.keys(this.gameState.players)
         CommonAlgos.shuffle(playerNamesArray)
-        for(var i = 0; i < this.numWerewolves; i++){
+        for(let i = 0; i < this.numWerewolves; i++){
             this.gameState.players[playerNamesArray[i]].isWerewolf = true
         }
         this.livingPlayersCache = new Set()
-        for(var player of playerNamesArray){
+        for(let player of playerNamesArray){
             this.livingPlayersCache.add(player)
         }
         this.gameState.phase = Shared.Phases.STARTED

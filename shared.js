@@ -37,6 +37,8 @@ Shared.Phases = {
 }
 
 Shared.ClientMessageType = {
+    CHATMESSAGE: "chatMessage",
+    PRIVILEGEDCHATMESSAGE: "privilegedChatMessage",
     GAMESTATEREQ: "gameStateReq",
     SUGGESTTARGET: "suggestTarget",
     VOTECAST: "voteCast",
@@ -44,6 +46,8 @@ Shared.ClientMessageType = {
 }
 
 Shared.ServerMessageType = {
+    CHATMESSAGE: "chatMessage",
+    PRIVILEGEDCHATMESSAGE: "privilegedChatMessage",
     GAMESTATEINFO: "gameStateInfo",
     ACKNOWLEDGEMENT: "acknoledgement",
     VOTECAST: "voteCast",
@@ -114,13 +118,29 @@ Shared.ChangePasswordOutcome = {
     SUCCESS: "success"
 }
 
-Shared.SocketIOEvents = {
+Shared.ServerSocketEvent = {
     SYSTEMNOTICE: "systemNotice", // notices from server unrelated to the happneings inside the game
-    CHATMESSAGE: "chatMessage",
-    PRIVILEGEDCHATMESSAGE: "privilegedChatMessage",
-    ALREADYINGAME: "alreadyInGame", // indicates to client that the associated user is already in a game
-    JOINEDNEWGAME: "joinedNewGame", // indicates to client that the associated user has been joined into a new game
-    GAMEACTION: "gameAction" // action related to the context of the game itself
+    GAMEACTION: "gameAction", // action related to the context of the game itself
+    LOBBYUPDATE: "lobbyUpdate", // update to the status of the game lobby (e.g. a player joins/leaves a game)
+    LOBBYSTATE: "lobbyState", // message containing complete state of lobby
+    CREATEGAMEOUTCOME: "createGameOutcome"
+}
+
+Shared.ClientSocketEvent = {
+    GAMEACTION: "gameAction", // action related to the context of the game itself
+    STATUSREQUEST: "statusRequest", // request from client asking for the client's status (e.g. whether it is in a game)
+    LOBBYSTATEREQUEST: "lobbyStateRequest", // client message asking for complete state of lobby
+    CREATEGAME: "createGame",
+    LEAVEGAME: "leaveGame" // leave game in lobby, before it has started. Currenlty no way to leave started games.
+}
+
+Shared.CreateGameOutcome = {
+    MISSINGINFO: "missingInfo",
+    NAMEEXISTS: "nameExists",
+    NOTENOUGHPLAYERS: "notEnoughPlayers",
+    TOOMANYWEREWOLVES: "tooManyWerewolves",
+    INTERNALERROR: "internalError",
+    SUCCESS: "success"
 }
 
 module.exports = Shared

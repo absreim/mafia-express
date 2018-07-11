@@ -240,8 +240,8 @@ const io = socketIo(server)
 io.origins(["localhost:3000"])
 io.use(sharedSession(session))
 
-let currentGame = null // the game currently waiting for players, or null if no such game exists
-const openGames = new Set()
+const startedGames = {} // games that have started
+const lobbyGames = {} // games in lobby that have not started
 const userToGameMap = {}
 const userToSocketMap = {}
 
@@ -254,10 +254,37 @@ function processGameControllerResponses(responses){
                     recipientSocket.emit(Shared.SocketIOEvents.GAMEACTION, response.payload)
                 }
                 else{
-                    console.log("Warning: tried to send game action message to user \"" + recipient + "\", but that user does not have an associated socket.")
+                    console.log(`Warning: tried to send game action message to user "${recipient}", but that user does not have an associated socket.`)
                 }
             }
         }
+    }
+}
+
+function gameStartCallback(name){
+    if(name in lobbyGames){
+        startedGames[name] = lobbyGames[name]
+        delete lobbyGames[name]
+    }
+    else{
+        console.log("Warning: game start callback received from game that doesn't exist in the lobby.")
+    }
+}
+
+function gameEndCallback(name, players){
+    if(name in startedGames){
+        delete startedGames[name]
+        for(let player of players){
+            if(player in userToGameMap){
+                delete userToGameMap[player]
+            }
+            else{
+                console.log("Warning: in game end callback, tried to delete player from user to game mapping, but user did not exist in the mapping.")
+            }
+        }
+    }
+    else{
+        console.log("Warning: game end callback received from game that doesn't exist in the started games list.")
     }
 }
 
@@ -268,33 +295,63 @@ io.on("connection", function(socket){
         socket.on("disconnect", function(){
             delete userToSocketMap[username]
         })
-        socket.on(Shared.SocketIOEvents.GAMEACTION, function(data){
+        socket.on(Shared.ClientSocketEvent.GAMEACTION, function(data){
             const usersGame = userToGameMap[username]
             if(usersGame){
                 processGameControllerResponses(usersGame.handleMessage(data, username))
             }
             else{
-                socket.emit(Shared.SocketIOEvents.SYSTEMNOTICE, "Received game action message, but you do not appear to be in a game.")
+                socket.emit(Shared.ServerSocketEvent.SYSTEMNOTICE, "Received game action message, but you do not appear to be in a game.")
                 console.log("Warning: game action message received from user not in a game.")
             }
         })
-        if(username in userToGameMap){
-            processGameControllerResponses(userToGameMap[username].gameStateUpdateForPlayer(username))
-        }
-        else{
-            if(currentGame){
-                processGameControllerResponses(currentGame.joinPlayer(username))
+        socket.on(Shared.ClientSocketEvent.STATUSREQUEST, function(){
+            if(userToGameMap[username]){
+                socket.emit({game: userToGameMap[username]})
             }
             else{
-                const newGame = new GameController.GameController(6,2)
-                openGames.add(newGame)
-                processGameControllerResponses(newGame.joinPlayer(username))
-                currentGame = newGame
+                socket.emit({game: null})
             }
-        }
+        })
+        socket.on(Shared.ClientSocketEvent.LOBBYSTATEREQUEST, function(){
+            socket.emit(Shared.ServerSocketEvent.LOBBYSTATE, lobbyGames)
+        })
+        socket.on(Shared.ClientSocketEvent.CREATEGAME, function(data){
+            if(data && data.name && data.numPlayers && data.numWerewolves){
+                if(data.name in lobbyGames || data.name in startedGames){
+                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.NAMEEXISTS)
+                }
+                else if(data.numPlayers < 4){
+                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.NOTENOUGHPLAYERS)
+                }
+                else if(data.numPlayers - data.numWerewolves < 2){
+                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.TOOMANYWEREWOLVES)
+                }
+                else{
+                    try{
+                        lobbyGames[data.name] = new GameController(data.numPlayers, data.numWerewolves, () => gameStartCallback(data.name), (players) => gameEndCallback(data.name, players))
+                    }
+                    catch(error){
+                        socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CREATEGAMEOUTCOME.INTERNALERROR)
+                        console.error("Error occurred while creating GameController instance: " + error)
+                    }
+                    try{
+                        let responses = lobbyGames[data.name].joinPlayer(username)
+                        processGameControllerResponses(responses)
+                    }
+                    catch(error){
+                        socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CREATEGAMEOUTCOME.INTERNALERROR)
+                        console.error("Error occurred while joining a player to a game that was just created for that player: " + error)
+                    }
+                }
+            }
+            else{
+                socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.MISSINGINFO)
+            }
+        })
     }
     else{
-        socket.emit(Shared.SocketIOEvents.SYSTEMNOTICE, "Unable to determine your user account. Disconnecting.")
+        socket.emit(Shared.ServerSocketEvent.SYSTEMNOTICE, "Unable to determine your user account. Disconnecting.")
         socket.disconnect(true)
         console.log("Warning: user connected without session information.")
     }
