@@ -240,9 +240,11 @@ const io = socketIo(server)
 io.origins(["localhost:3000"])
 io.use(sharedSession(session))
 
+const LOBBYUPDATESROOM = "lobbyUpdates"
+
 const startedGames = {} // games that have started
 const lobbyGames = {} // games in lobby that have not started
-const userToGameMap = {}
+const userToGameMap = {} // user to game name, not game object
 const userToSocketMap = {}
 
 function processGameControllerResponses(responses){
@@ -275,6 +277,9 @@ function gameEndCallback(name, players){
     if(name in startedGames){
         delete startedGames[name]
         for(let player of players){
+            if(player in userToSocketMap){
+                userToSocketMap[player].emit(Shared.ServerSocketEvent.GAMEENDED)
+            }
             if(player in userToGameMap){
                 delete userToGameMap[player]
             }
@@ -316,6 +321,14 @@ io.on("connection", function(socket){
         socket.on(Shared.ClientSocketEvent.LOBBYSTATEREQUEST, function(){
             socket.emit(Shared.ServerSocketEvent.LOBBYSTATE, lobbyGames)
         })
+        socket.on(Shared.ClientSocketEvent.SUBSCRIBELOBBYUPDATES, function(){
+            socket.join(LOBBYUPDATESROOM)
+            socket.emit(Shared.ServerSocketEvent.LOBBYUPDATESSUBSCRIBED)
+        })
+        socket.on(Shared.ClientSocketEvent.UNSUBSCRIBELOBBYUPDATES, function(){
+            socket.leave(LOBBYUPDATESROOM)
+            socket.emit(Shared.ServerSocketEvent.LOBBYUPDATESUNSUBSCRIBED)
+        })
         socket.on(Shared.ClientSocketEvent.CREATEGAME, function(data){
             if(data && data.name && data.numPlayers && data.numWerewolves){
                 if(data.name in lobbyGames || data.name in startedGames){
@@ -329,15 +342,26 @@ io.on("connection", function(socket){
                 }
                 else{
                     try{
-                        lobbyGames[data.name] = new GameController(data.numPlayers, data.numWerewolves, () => gameStartCallback(data.name), (players) => gameEndCallback(data.name, players))
+                        lobbyGames[data.name] = new GameController(data.numPlayers, data.numWerewolves, () => {gameStartCallback(data.name)}, (players) => {gameEndCallback(data.name, players)})
                     }
                     catch(error){
                         socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CREATEGAMEOUTCOME.INTERNALERROR)
                         console.error("Error occurred while creating GameController instance: " + error)
                     }
                     try{
-                        let responses = lobbyGames[data.name].joinPlayer(username)
+                        const responses = lobbyGames[data.name].joinPlayer(username)
+                        userToGameMap[username] = data.name
+                        socket.emit(Shared.ServerSocketEvent.CreateGameOutcome, Shared.CreateGameOutcome.SUCCESS)
                         processGameControllerResponses(responses)
+                        io.to(LOBBYUPDATESROOM).emit(Shared.ServerSocketEvent.LOBBYUPDATE, {
+                            type: Shared.LobbyUpdate.GAMECREATED,
+                            game: data.name,
+                            numPlayers: data.numPlayers,
+                            numWerewolves: data.numWerewolves,
+                            player: username
+                        })
+                        // when a player creates a game, it is assumed that the player automatically joins
+                        // no need to send separate update that the player joined the game
                     }
                     catch(error){
                         socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CREATEGAMEOUTCOME.INTERNALERROR)
@@ -347,6 +371,77 @@ io.on("connection", function(socket){
             }
             else{
                 socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.MISSINGINFO)
+            }
+        })
+        socket.on(Shared.ClientSocketEvent.JOINGAME, function(data){
+            if(data && data.name){
+                if(userToGameMap[username]){
+                    socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, Shared.JoinGameOutcome.ALREADYINGAME)
+                }
+                else if(startedGames[data.name]){
+                    socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, Shared.JoinGameOutcome.GAMESTARTED)
+                }
+                else if(lobbyGames[data.name]){
+                    try{
+                        const responses = lobbyGames[data.name].joinPlayer(username)
+                        userToGameMap[username] = data.name
+                        socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, Shared.JoinGameOutcome.SUCCESS)
+                        processGameControllerResponses(responses)
+                        io.to(LOBBYUPDATESROOM).emit(Shared.ServerSocketEvent.LOBBYUPDATE, {
+                            type: Shared.LobbyUpdate.PLAYERJOINED,
+                            game: data.name,
+                            player: username
+                        })
+                    }
+                    catch{
+                        socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, Shared.JoinGameOutcome.INTERNALERROR)
+                        console.error("Error occurred while joining a player to a game: " + error)
+                    }
+                }
+                else{
+                    socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, Shared.JoinGameOutcome.DOESNOTEXIST)
+                }
+            }
+            else{
+                socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, Shared.JoinGameOutcome.MISSINGINFO)
+            }
+        })
+        socket.on(Shared.ClientSocketEvent.LEAVEGAME, function(){
+            const usersGameName = userToGameMap[username]
+            if(usersGameName){
+                if(usersGameName in lobbyGames){
+                    try{
+                        const responses = usersGame.removePlayer(username)
+                        delete userToGameMap[username]
+                        socket.emit(Shared.ServerSocketEvent.LEAVEGAMEOUTCOME, Shared.LeaveGameOutcome.SUCCESS)
+                        processGameControllerResponses(responses)
+                        io.to(LOBBYUPDATESROOM).emit(Shared.ServerSocketEvent.LOBBYUPDATE, {
+                            type: Shared.LobbyUpdate.PLAYERLEFT,
+                            game: usersGameName,
+                            player: username
+                        })
+                        if(lobbyGames[usersGameName].isEmpty()){
+                            delete lobbyGames[usersGameName]
+                            io.to(LOBBYUPDATESROOM).emit(Shared.ServerSocketEvent.LOBBYUPDATE, {
+                                type: Shared.LobbyUpdate.GAMEDELETED,
+                                game: usersGameName
+                            })
+                        }
+                    }
+                    catch(error){
+                        socket.emit(Shared.ServerSocketEvent.LEAVEGAMEOUTCOME, Shared.LeaveGameOutcome.INTERNALERROR)
+                        console.error("Error occurred while trying to leave game: " + error)
+                    }
+                }
+                else if(usersGame in startedGames){
+                    socket.emit(Shared.ServerSocketEvent.LEAVEGAMEOUTCOME, Shared.LeaveGameOutcome.GAMESTARTED)
+                }
+                else{
+                    socket.emit(Shared.ServerSocketEvent.LEAVEGAMEOUTCOME, Shared.LeaveGameOutcome.INTERNALERROR)
+                }
+            }
+            else{
+                socket.emit(Shared.ServerSocketEvent.LEAVEGAMEOUTCOME, Shared.LeaveGameOutcome.NOTINGAME)
             }
         })
     }

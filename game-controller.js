@@ -66,7 +66,7 @@ GameController.GameController = class {
         }
         if(playerName in this.gameState.players){
             // include the leaving player in the message for the sake of confirmation
-            const recipients = Object.keys(this.gameState.player)
+            const recipients = Object.keys(this.gameState.players)
             delete this.gameState.players[playerName]
             const payload =
             {
@@ -76,8 +76,11 @@ GameController.GameController = class {
             return [new GameController.GameControllerMessage(recipients, payload)]
         }
         else{
-            console.log("Warning: attempt to remove player that doesn't exist.")
+            throw new Error("Attempt to remove player that doesn't exist.")
         }
+    }
+    isEmpty(){
+        return Object.keys(this.gameState.players).length == 0
     }
     /* Return list of messages to send and a list of recipients for each message
     or return null if there is no message to send. */

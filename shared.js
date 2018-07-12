@@ -123,13 +123,22 @@ Shared.ServerSocketEvent = {
     GAMEACTION: "gameAction", // action related to the context of the game itself
     LOBBYUPDATE: "lobbyUpdate", // update to the status of the game lobby (e.g. a player joins/leaves a game)
     LOBBYSTATE: "lobbyState", // message containing complete state of lobby
-    CREATEGAMEOUTCOME: "createGameOutcome"
+    LOBBYUPDATESSUBSCRIBED: "lobbyUpdatesSubscribed", // confirmation that lobby updates room has been joined
+    LOBBYUPDATESUNSUBSCRIBED: "lobbyUpdatesUnsubscribed",
+    CREATEGAMEOUTCOME: "createGameOutcome", // outcome of a create game request, enumerated in CreateGameOutcome
+    LEAVEGAMEOUTCOME: "leaveGameOutcome",
+    JOINGAMEOUTCOME: "joinGameOutcome",
+    GAMEENDED: "gameEnded"
+    // clients are notified of the start to a game via GAMEACTION messages
 }
 
 Shared.ClientSocketEvent = {
     GAMEACTION: "gameAction", // action related to the context of the game itself
     STATUSREQUEST: "statusRequest", // request from client asking for the client's status (e.g. whether it is in a game)
     LOBBYSTATEREQUEST: "lobbyStateRequest", // client message asking for complete state of lobby
+    SUBSCRIBELOBBYUPDATES: "subscribeLobbyUpdates", // request to join lobby updates room
+    UNSUBSCRIBELOBBYUPDATES: "unsubscribeLobbyUpdates",
+    JOINGAME: "joinGame",
     CREATEGAME: "createGame",
     LEAVEGAME: "leaveGame" // leave game in lobby, before it has started. Currenlty no way to leave started games.
 }
@@ -141,6 +150,29 @@ Shared.CreateGameOutcome = {
     TOOMANYWEREWOLVES: "tooManyWerewolves",
     INTERNALERROR: "internalError",
     SUCCESS: "success"
+}
+
+Shared.LeaveGameOutcome = {
+    NOTINGAME: "notInGame",
+    GAMESTARTED: "gameStarted",
+    INTERNALERROR: "internalError",
+    SUCCESS: "success"
+}
+
+Shared.JoinGameOutcome = {
+    MISSINGINFO: "missingInfo",
+    ALREADYINGAME: "alreadyInGame",
+    GAMESTARTED: "gameStarted",
+    DOESNOTEXIST: "doesNotExist",
+    SUCCESS: "success",
+    INTERNALERROR: "internalError"
+}
+
+Shared.LobbyUpdate = {
+    GAMECREATED: "gameCreated",
+    PLAYERLEFT: "playerLeft",
+    PLAYERJOINED: "playerJoined",
+    GAMEDELETED: "gameDeleted"
 }
 
 module.exports = Shared
