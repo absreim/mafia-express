@@ -4,14 +4,13 @@ const cors = require("cors")
 const bodyParser = require("body-parser")
 const expressSession = require("express-session")
 const pgPromise = require("pg-promise")()
-const pgSession = require("connect-pg-simple")(session)
+const pgSession = require("connect-pg-simple")(expressSession)
 const sharedSession = require("express-socket.io-session")
 const socketIo = require("socket.io")
 
 const Shared = require("./shared.js")
 const Authentication = require("./authentication.js")
 const GameController =  require("./game-controller.js")
-
 
 const app = express()
 
@@ -312,10 +311,10 @@ io.on("connection", function(socket){
         })
         socket.on(Shared.ClientSocketEvent.STATUSREQUEST, function(){
             if(userToGameMap[username]){
-                socket.emit({game: userToGameMap[username]})
+                socket.emit(Shared.ServerSocketEvent.STATUSREPLY, {game: userToGameMap[username]})
             }
             else{
-                socket.emit({game: null})
+                socket.emit(Shared.ServerSocketEvent.STATUSREPLY, {game: null})
             }
         })
         socket.on(Shared.ClientSocketEvent.LOBBYSTATEREQUEST, function(){
@@ -393,7 +392,7 @@ io.on("connection", function(socket){
                             player: username
                         })
                     }
-                    catch{
+                    catch(error){
                         socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, Shared.JoinGameOutcome.INTERNALERROR)
                         console.error("Error occurred while joining a player to a game: " + error)
                     }
