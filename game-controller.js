@@ -18,69 +18,31 @@ GameController.GameControllerMessage = class {
 GameController.GameController = class {
     /* numWerewolves should be less than half of total players.
     Minimum totalPlayers in a game is 4. */
-    constructor(totalPlayers, numWerewolves, gameStartCallback, gameEndCallback){
-        if(totalPlayers < 4){
+    constructor(players, numWerewolves, gameEndCallback){
+        if(players.size < 4){
             throw new RangeError("Total players in a game must be at least 4.")
         }
-        if(totalPlayers - totalWerewolves < 2){
-            throw new RangeError("There must be at least 2 more villagers than werewolves.")
+        if(totalWerewolves * 2 >= players.size){
+            throw new RangeError("There must be more than twice as many villagers as werewolves.")
         }
         this.gameState = new Shared.GameState()
-        this.totalPlayers = totalPlayers
+        for(let player of players){ // copy contents of input set
+            this.gameState.players.add(player)
+        }
         this.numWerewolves = numWerewolves
-        this.gameStartCallback = gameStartCallback
         this.gameEndCallback = gameEndCallback
         this.livingPlayersCache = null // Set of all players still alive
-    }
-    joinPlayer(playerName){
-        if(this.gameState.phase != Shared.Phases.WAITING){
-            throw new Error("Players can join only before the game has started.") 
+        const playerNamesArray = Object.keys(this.gameState.players)
+        CommonAlgos.shuffle(playerNamesArray)
+        for(let i = 0; i < this.numWerewolves; i++){
+            this.gameState.players[playerNamesArray[i]].isWerewolf = true
         }
-        if(playerName in this.gameState.players){
-            console.log("Warning: attempt to join player that is already joined.")
-            return null
+        this.livingPlayersCache = new Set()
+        for(let player of playerNamesArray){
+            this.livingPlayersCache.add(player)
         }
-        else{
-            if(Object.keys(this.gameState.players).length == this.totalPlayers - 1){
-                this.gameState.players[playerName] = new Shared.PlayerDetails(false)
-                return this.initializeGame()
-            }
-            else{
-                this.gameState.players[playerName] = new Shared.PlayerDetails(false)
-                const recipients = Object.keys(this.gameState.players) // include player that just joined for the purpose of confirmation
-                const payload =
-                    {
-                        type: Shared.ServerMessageType.PLAYERJOINED,
-                        playerName: playerName
-                    }
-                const playerJoinedMessage = new GameController.GameControllerMessage(recipients, payload)
-                const stateUpdateMessage = new GameController.GameControllerMessage([playerName], this.gameStateMessage(false))
-                // initial game state update for player that just joined
-                return [playerJoinedMessage, stateUpdateMessage]
-            }
-        }
-    }
-    removePlayer(playerName){
-        if(this.gameState.phase != Shared.Phases.WAITING){
-            throw new Error("Players can leave only before the game has started.") 
-        }
-        if(playerName in this.gameState.players){
-            // include the leaving player in the message for the sake of confirmation
-            const recipients = Object.keys(this.gameState.players)
-            delete this.gameState.players[playerName]
-            const payload =
-            {
-                type: Shared.ServerMessageType.PLAYERLEFT,
-                playerName: playerName
-            }
-            return [new GameController.GameControllerMessage(recipients, payload)]
-        }
-        else{
-            throw new Error("Attempt to remove player that doesn't exist.")
-        }
-    }
-    isEmpty(){
-        return Object.keys(this.gameState.players).length == 0
+        this.gameState.phase = Shared.Phases.STARTED
+        // user of this object will probably want to request a gameStateUpdateAll at this point
     }
     /* Return list of messages to send and a list of recipients for each message
     or return null if there is no message to send. */
@@ -299,7 +261,6 @@ GameController.GameController = class {
                 this.gameState.acks.add(sendingPlayer)
                 if(this.gameState.acks.size == Object.keys(this.gameState.players).length){
                     this.gameState.phase = Shared.Phases.NIGHTTIME
-                    this.gameStartCallback()
                     return this.gameStateUpdateAll()
                 }
                 else{
@@ -488,24 +449,6 @@ GameController.GameController = class {
         const numLivingVillagers = livingVillagers.length
         const numLivingWerewolves = this.livingWerewolves().length
         return numLivingWerewolves == 0 || numLivingVillagers <= numLivingWerewolves
-    }
-    initializeGame(){
-        if(this.numWerewolves / this.totalPlayers >= 0.5){
-            this.numWerewolves = Math.floor(Math.sqrt(this.totalPlayers)) - 1
-            console.log(`Warning: attempt to start game half or more of the players as werewolves. 
-            Using default computed value of ${this.numWerewolves} instead.`)
-        }
-        const playerNamesArray = Object.keys(this.gameState.players)
-        CommonAlgos.shuffle(playerNamesArray)
-        for(let i = 0; i < this.numWerewolves; i++){
-            this.gameState.players[playerNamesArray[i]].isWerewolf = true
-        }
-        this.livingPlayersCache = new Set()
-        for(let player of playerNamesArray){
-            this.livingPlayersCache.add(player)
-        }
-        this.gameState.phase = Shared.Phases.STARTED
-        return this.gameStateUpdateAll()
     }
 }
 

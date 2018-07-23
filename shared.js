@@ -6,7 +6,6 @@ structure of the app easier to understand. */
 const Shared = {}
 
 /* 
-WAITING: waiting for game to fill up with players
 STARTED: just started game, displaying list of players 
 and waiting for ready from each player
 DAYTIME: daytime, waiting for player to suggest target
@@ -23,7 +22,6 @@ OVER: game over screen, waiting for players to ready up
 before creating new game
 */
 Shared.Phases = {
-    WAITING: "waiting",
     STARTED: "started",
     DAYTIME: "daytime",
     DAYTIMEVOTING: "daytimeVoting",
@@ -69,6 +67,15 @@ Shared.GameState = class {
         this.votes = {} // player name -> value; true = yea, false = nay
         this.acks = new Set() // acknowledgements for information displayed in certain phases
         this.chosenPlayer = null // player chosen for voting or player just killed
+    }
+}
+
+// maxPlayers must be at least 4 and strictly more than twice numWerewolves
+Shared.LobbyGameState = class {
+    constructor(maxPlayers, numWerewolves){
+        this.maxPlayers = maxPlayers
+        this.numWerewolves = numWerewolves
+        this.players = new Set()
     }
 }
 
@@ -129,8 +136,10 @@ Shared.ServerSocketEvent = {
     CREATEGAMEOUTCOME: "createGameOutcome", // outcome of a create game request, enumerated in CreateGameOutcome
     LEAVEGAMEOUTCOME: "leaveGameOutcome",
     JOINGAMEOUTCOME: "joinGameOutcome",
-    GAMEENDED: "gameEnded"
-    // clients are notified of the start to a game via GAMEACTION messages
+    GAMESTARTED: "gameStarted", // sent when the last player joins a lobby game and the game controller is created
+    // clients must request initial status update via GAMEACTION message
+    GAMEENDED: "gameEnded", // clients are notified of the start to a game via GAMEACTION messages
+    REMOVEDFROMGAME: "removedFromGame" // removed from game due to exceptional circumstances
 }
 
 Shared.ClientSocketEvent = {
@@ -163,7 +172,7 @@ Shared.LeaveGameOutcome = {
 Shared.JoinGameOutcome = {
     MISSINGINFO: "missingInfo",
     ALREADYINGAME: "alreadyInGame",
-    GAMESTARTED: "gameStarted",
+    GAMESTARTED: "gameStarted", // game started as a result of player joining
     DOESNOTEXIST: "doesNotExist",
     SUCCESS: "success",
     INTERNALERROR: "internalError"
@@ -173,7 +182,8 @@ Shared.LobbyUpdate = {
     GAMECREATED: "gameCreated",
     PLAYERLEFT: "playerLeft",
     PLAYERJOINED: "playerJoined",
-    GAMEDELETED: "gameDeleted"
+    GAMEDELETED: "gameDeleted",
+    GAMESTARTED: "gameStarted"
 }
 
 module.exports = Shared
