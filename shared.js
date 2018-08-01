@@ -158,6 +158,7 @@ Shared.CreateGameOutcome = {
     NAMEEXISTS: "nameExists",
     NOTENOUGHPLAYERS: "notEnoughPlayers",
     TOOMANYWEREWOLVES: "tooManyWerewolves",
+    NOTENOUGHWEREWOLVES: "notEnoughWerewolves",
     INTERNALERROR: "internalError",
     SUCCESS: "success"
 }

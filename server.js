@@ -329,6 +329,9 @@ io.on("connection", function(socket){
                 else if(data.numPlayers * 2 <= data.numWerewolves){
                     socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.TOOMANYWEREWOLVES)
                 }
+                else if(data.numWerewolves < 1){
+                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.NOTENOUGHWEREWOLVES)
+                }
                 else{
                     lobbyGames[data.name] = new Shared.LobbyGameState(data.numPlayers, data.numWerewolves)
                     lobbyGames[data.name].players.add(username)
