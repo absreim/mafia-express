@@ -131,6 +131,7 @@ Shared.ServerSocketEvent = {
     GAMEACTION: "gameAction", // action related to the context of the game itself
     LOBBYUPDATE: "lobbyUpdate", // update to the status of the game lobby (e.g. a player joins/leaves a game)
     LOBBYSTATE: "lobbyState", // message containing complete state of lobby
+    LOBBYGAMESTATE: "lobbyGameState", // message containing complete state of a lobby game
     LOBBYUPDATESSUBSCRIBED: "lobbyUpdatesSubscribed", // confirmation that lobby updates room has been joined
     LOBBYUPDATESUNSUBSCRIBED: "lobbyUpdatesUnsubscribed",
     CREATEGAMEOUTCOME: "createGameOutcome", // outcome of a create game request, enumerated in CreateGameOutcome
@@ -146,6 +147,7 @@ Shared.ClientSocketEvent = {
     GAMEACTION: "gameAction", // action related to the context of the game itself
     STATUSREQUEST: "statusRequest", // request from client asking for the client's status (e.g. whether it is in a game)
     LOBBYSTATEREQUEST: "lobbyStateRequest", // client message asking for complete state of lobby
+    LOBBYGAMESTATEREQUEST: "lobbyGameStateRequest",
     SUBSCRIBELOBBYUPDATES: "subscribeLobbyUpdates", // request to join lobby updates room
     UNSUBSCRIBELOBBYUPDATES: "unsubscribeLobbyUpdates",
     JOINGAME: "joinGame",
@@ -154,6 +156,7 @@ Shared.ClientSocketEvent = {
 }
 
 Shared.CreateGameOutcome = {
+    ALREADYINGAME: "alreadyInGame",
     MISSINGINFO: "missingInfo",
     NAMEEXISTS: "nameExists",
     NOTENOUGHPLAYERS: "notEnoughPlayers",

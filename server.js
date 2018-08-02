@@ -300,8 +300,12 @@ io.on("connection", function(socket){
             }
         })
         socket.on(Shared.ClientSocketEvent.STATUSREQUEST, function(){
-            if(userToGameMap[username]){
-                socket.emit(Shared.ServerSocketEvent.STATUSREPLY, {game: userToGameMap[username]})
+            const gameName = userToGameMap[username]
+            if(gameName){
+                socket.emit(Shared.ServerSocketEvent.STATUSREPLY, {
+                    game: userToGameMap[username],
+                    isLobbyGame: gameName in lobbyGames
+                })
             }
             else{
                 socket.emit(Shared.ServerSocketEvent.STATUSREPLY, {game: null})
@@ -320,7 +324,10 @@ io.on("connection", function(socket){
         })
         socket.on(Shared.ClientSocketEvent.CREATEGAME, function(data){
             if(data && data.name && data.numPlayers && data.numWerewolves){
-                if(data.name in lobbyGames || data.name in startedGames){
+                if(username in userToGameMap){
+                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.ALREADYINGAME)
+                }
+                else if(data.name in lobbyGames || data.name in startedGames){
                     socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.NAMEEXISTS)
                 }
                 else if(data.numPlayers < 4){
@@ -404,6 +411,11 @@ io.on("connection", function(socket){
                     }
                     else{
                         socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, Shared.JoinGameOutcome.SUCCESS)
+                        for(let player of currentGame.players){
+                            if(userToSocketMap[player]){
+                                userToSocketMap[player].emit(Shared.ServerSocketEvent.LOBBYGAMESTATE, currentGame)
+                            }
+                        }
                     }
                 }
                 else{
@@ -418,8 +430,15 @@ io.on("connection", function(socket){
             const usersGameName = userToGameMap[username]
             if(usersGameName){
                 if(usersGameName in lobbyGames){
-                    userToGameMap[username].delete(username)
+                    const currentGame = userToGameMap[username]
+                    currentGame.players.delete(username)
                     delete userToGameMap[username]
+                    socket.emit(Shared.ServerSocketEvent.LEAVEGAMEOUTCOME, SUCCESS)
+                    for(let player of currentGame.players){
+                        if(userToSocketMap[player]){
+                            userToSocketMap[player].emit(Shared.ServerSocketEvent.LOBBYGAMESTATE, currentGame)
+                        }
+                    }
                     io.to(LOBBYUPDATESROOM).emit(Shared.ServerSocketEvent.LOBBYUPDATE, {
                         type: Shared.LobbyUpdate.PLAYERLEFT,
                         game: usersGameName,
