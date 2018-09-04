@@ -35,8 +35,6 @@ Shared.Phases = {
 }
 
 Shared.ClientMessageType = {
-    CHATMESSAGE: "chatMessage",
-    PRIVILEGEDCHATMESSAGE: "privilegedChatMessage",
     GAMESTATEREQ: "gameStateReq",
     SUGGESTTARGET: "suggestTarget",
     VOTECAST: "voteCast",
@@ -44,13 +42,9 @@ Shared.ClientMessageType = {
 }
 
 Shared.ServerMessageType = {
-    CHATMESSAGE: "chatMessage",
-    PRIVILEGEDCHATMESSAGE: "privilegedChatMessage",
     GAMESTATEINFO: "gameStateInfo",
-    ACKNOWLEDGEMENT: "acknoledgement",
-    VOTECAST: "voteCast",
-    PLAYERJOINED: "playerJoined",
-    PLAYERLEFT: "playerLeft"
+    ACKNOWLEDGEMENT: "acknowledgement",
+    VOTECAST: "voteCast"
 }
 
 Shared.PlayerDetails = class {
