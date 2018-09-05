@@ -187,7 +187,7 @@ GameController.GameController = class {
         switch(this.gameState.phase){
             case Shared.Phases.ENDOFDAY:
                 this.gameState.acks.add(sendingPlayer)
-                if(this.gameState.acks.size == this.livingPlayersCache.size){
+                if(this.gameState.acks.size == Object.keys(this.gameState.players).length){
                     this.gameState.phase = Shared.Phases.NIGHTTIME
                     this.gameState.chosenPlayer = null
                     return this.gameStateUpdateAll()
@@ -203,7 +203,7 @@ GameController.GameController = class {
                 }
             case Shared.Phases.ENDOFNIGHT:
                 this.gameState.acks.add(sendingPlayer)
-                if(this.gameState.acks.size == this.livingPlayersCache.size){
+                if(this.gameState.acks.size == Object.keys(this.gameState.players).length){
                     this.gameState.phase = Shared.Phases.DAYTIME
                     this.gameState.chosenPlayer = null
                     return this.gameStateUpdateAll()
@@ -219,7 +219,7 @@ GameController.GameController = class {
                 }
             case Shared.Phases.DAYTIMEVOTEFAILED:
                 this.gameState.acks.add(sendingPlayer)
-                if(this.gameState.acks.size == this.livingPlayersCache.size){
+                if(this.gameState.acks.size == Object.keys(this.gameState.players).length){
                     this.gameState.phase = Shared.Phases.DAYTIME
                     this.gameState.chosenPlayer = null
                     return this.gameStateUpdateAll()
