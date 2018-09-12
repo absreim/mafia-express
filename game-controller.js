@@ -356,10 +356,10 @@ GameController.GameController = class {
         const gameStateCopy = new Shared.GameState()
         gameStateCopy.phase = this.gameState.phase
         gameStateCopy.chosenPlayer = this.gameState.chosenPlayer
-        for (let player in this.gameState.votes){
-            gameStateCopy.votes[player] = this.gameState.votes[player]
-        }
         if(isPrivileged){
+            for (let player in this.gameState.votes){
+                gameStateCopy.votes[player] = this.gameState.votes[player]
+            }
             for(let player in this.gameState.players){
                 if(this.gameState.players[player]){
                     gameStateCopy.players[player] = new Shared.PlayerDetails(this.gameState.players[player].isWerewolf)
@@ -371,6 +371,13 @@ GameController.GameController = class {
             }
         }
         else{ // to simulate lack to privileged information, all players are marked as villagers
+            if(gameStateCopy.phase == Shared.Phases.DAYTIMEVOTING || gameStateCopy.phase == Shared.Phases.ENDOFDAY ||
+                gameStateCopy.phase == Shared.Phases.DAYTIMEVOTEFAILED){
+                // revealing nighttime votes would reveal identity of werewolves
+                for (let player in this.gameState.votes){
+                    gameStateCopy.votes[player] = this.gameState.votes[player]
+                }
+            }
             for(let player in this.gameState.players){
                 if(this.gameState.players[player]){
                     gameStateCopy.players[player] = new Shared.PlayerDetails(false)
