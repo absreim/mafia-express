@@ -54,22 +54,26 @@ Shared.PlayerDetails = class {
     }
 }
 
+// serialized version of object meant to represent game state
+// internally it may make more sense for acks to be a Set
 Shared.GameState = class {
     constructor(){
         this.phase = Shared.Phases.WAITING
         this.players = {} // player name -> PlayerDetails object
         this.votes = {} // player name -> value; true = yea, false = nay
-        this.acks = new Set() // acknowledgements for information displayed in certain phases
+        this.acks = [] // acknowledgements for information displayed in certain phases
         this.chosenPlayer = null // player chosen for voting or player just killed
     }
 }
 
+// serialized version of object meant to represent lobby game state
+// internally it may make more sense for acks to be a Set
 // maxPlayers must be at least 4 and strictly more than twice numWerewolves
 Shared.LobbyGameState = class {
     constructor(maxPlayers, numWerewolves){
         this.maxPlayers = maxPlayers
         this.numWerewolves = numWerewolves
-        this.players = new Set()
+        this.players = []
     }
 }
 
@@ -120,7 +124,7 @@ Shared.ChangePasswordOutcome = {
 }
 
 Shared.ServerSocketEvent = {
-    SYSTEMNOTICE: "systemNotice", // notices from server unrelated to the happneings inside the game
+    SYSTEMNOTICE: "systemNotice", // notices from server unrelated to the happenings inside the game
     STATUSREPLY: "statusReply", // reply to STATUSREQUEST by client containing game information
     GAMEACTION: "gameAction", // action related to the context of the game itself
     LOBBYUPDATE: "lobbyUpdate", // update to the status of the game lobby (e.g. a player joins/leaves a game)

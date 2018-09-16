@@ -14,6 +14,19 @@ GameController.GameControllerMessage = class {
     }
 }
 
+// internal game state class
+// class in Shared is a serializable version that is returned
+// with game state update messages
+GameController.GameState = class {
+    constructor(){
+        this.phase = Shared.Phases.WAITING
+        this.players = {} // player name -> Shared.PlayerDetails object
+        this.votes = {} // player name -> value; true = yea, false = nay
+        this.acks = new Set() // acknowledgements for information displayed in certain phases
+        this.chosenPlayer = null // player chosen for voting or player just killed
+    }
+}
+
 /* Represents a single game instance. */
 GameController.GameController = class {
     /* numWerewolves should be less than half of total players.
@@ -25,7 +38,7 @@ GameController.GameController = class {
         if(totalWerewolves * 2 >= players.size){
             throw new RangeError("There must be more than twice as many villagers as werewolves.")
         }
-        this.gameState = new Shared.GameState()
+        this.gameState = new GameController.GameState()
         for(let player of players){ // copy contents of input set
             this.gameState.players.add(player)
         }
@@ -388,6 +401,7 @@ GameController.GameController = class {
                 }
             }
         }
+        gameStateCopy.acks = Array.from(this.gameState.acks)
         const stateInfoPayload =
             {
                 type: Shared.ServerMessageType.GAMESTATEINFO,

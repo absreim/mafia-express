@@ -17,9 +17,7 @@ const app = express()
 const connection = {
     host: "localhost",
     port: "5432",
-    database: "mafia_express",
-    user: "mafia_server",
-    password: "password"
+    database: "mafia_express"
 }
 const db = pgPromise(connection)
 const sessionStore = new pgSession({pgPromise: db})
@@ -246,6 +244,21 @@ const lobbyGames = {} // games in lobby that have not started
 const userToGameMap = {} // user to game name, not game object
 const userToSocketMap = {}
 
+LobbyGameState = class {
+    constructor(maxPlayers, numWerewolves){
+        this.maxPlayers = maxPlayers
+        this.numWerewolves = numWerewolves
+        this.players = new Set()
+    }
+    serialize(){
+        const serializedState = new Shared.LobbyGameState()
+        serializedState.maxPlayers = this.maxPlayers
+        serializedState.numWerewolves = this.numWerewolves
+        this.players = Array.from(this.players)
+        return serializedState
+    }
+}
+
 function processGameControllerResponses(responses){
     if(responses){
         for(let response of responses){
@@ -342,8 +355,9 @@ io.on("connection", function(socket){
                 else{
                     lobbyGames[data.name] = new Shared.LobbyGameState(data.numPlayers, data.numWerewolves)
                     lobbyGames[data.name].players.add(username)
-                    socket.emit(Shared.ServerSocketEvent.CreateGameOutcome, Shared.CreateGameOutcome.SUCCESS)
                     userToGameMap[username] = data.name
+                    socket.emit(Shared.ServerSocketEvent.CreateGameOutcome, Shared.CreateGameOutcome.SUCCESS)
+                    socket.emit(Shared.ServerSocketEvent.LOBBYGAMESTATE, currentGame)
                     io.to(LOBBYUPDATESROOM).emit(Shared.ServerSocketEvent.LOBBYUPDATE, {
                         type: Shared.LobbyUpdate.GAMECREATED,
                         game: data.name,
@@ -461,6 +475,12 @@ io.on("connection", function(socket){
             }
             else{
                 socket.emit(Shared.ServerSocketEvent.LEAVEGAMEOUTCOME, Shared.LeaveGameOutcome.NOTINGAME)
+            }
+        })
+        socket.on(Shared.ClientSocketEvent.LOBBYGAMESTATEREQUEST, function(){
+            const usersGameName = userToGameMap[username]
+            if(usersGameName && usersGameName in lobbyGames){
+                socket.emit(Shared.ServerSocketEvent.LOBBYGAMESTATE, lobbyGames[usersGameName].serialize())
             }
         })
     }
