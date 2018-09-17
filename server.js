@@ -259,6 +259,14 @@ LobbyGameState = class {
     }
 }
 
+function getSerializedLobbyState(){
+    const serializedLobbyState = {}
+    for(let gameName in Object.keys(lobbyGames)){
+        serializedLobbyState[gameName] = lobbyGames[gameName].serialize()
+    }
+    return serializedLobbyState
+}
+
 function processGameControllerResponses(responses){
     if(responses){
         for(let response of responses){
@@ -315,17 +323,30 @@ io.on("connection", function(socket){
         socket.on(Shared.ClientSocketEvent.STATUSREQUEST, function(){
             const gameName = userToGameMap[username]
             if(gameName){
-                socket.emit(Shared.ServerSocketEvent.STATUSREPLY, {
-                    game: userToGameMap[username],
-                    isLobbyGame: gameName in lobbyGames
-                })
+                if(gameName in lobbyGames){
+                    socket.emit(Shared.ServerSocketEvent.STATUSREPLY, {
+                        type: Shared.StatusType.INLOBBYGAME,
+                        gameName: gameName,
+                        gameState: lobbyGames[gameName].serialize()
+                    })
+                }
+                else{
+                    socket.emit(Shared.ServerSocketEvent.STATUSREPLY, {
+                        type: Shared.StatusType.INGAME,
+                        gameName: gameName,
+                        gameState: startedGames[gameName].rawGameStateUpdateForPlayer(username)
+                    })
+                }
             }
             else{
-                socket.emit(Shared.ServerSocketEvent.STATUSREPLY, {game: null})
+                socket.emit(Shared.ServerSocketEvent.STATUSREPLY, {
+                    type: Shared.StatusType.INLOBBY,
+                    lobbyState: getSerializedLobbyState()
+                })
             }
         })
         socket.on(Shared.ClientSocketEvent.LOBBYSTATEREQUEST, function(){
-            socket.emit(Shared.ServerSocketEvent.LOBBYSTATE, lobbyGames)
+            socket.emit(Shared.ServerSocketEvent.LOBBYSTATEREPLY, getSerializedLobbyState())
         })
         socket.on(Shared.ClientSocketEvent.SUBSCRIBELOBBYUPDATES, function(){
             socket.join(LOBBYUPDATESROOM)
@@ -338,26 +359,34 @@ io.on("connection", function(socket){
         socket.on(Shared.ClientSocketEvent.CREATEGAME, function(data){
             if(data && data.name && data.numPlayers && data.numWerewolves){
                 if(username in userToGameMap){
-                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.ALREADYINGAME)
+                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, {
+                        type: Shared.CreateGameOutcome.ALREADYINGAME})
                 }
                 else if(data.name in lobbyGames || data.name in startedGames){
-                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.NAMEEXISTS)
+                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, {
+                        type: Shared.CreateGameOutcome.NAMEEXISTS})
                 }
                 else if(data.numPlayers < 4){
-                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.NOTENOUGHPLAYERS)
+                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, {
+                        type: Shared.CreateGameOutcome.NOTENOUGHPLAYERS})
                 }
                 else if(data.numPlayers * 2 <= data.numWerewolves){
-                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.TOOMANYWEREWOLVES)
+                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, {
+                        type: Shared.CreateGameOutcome.TOOMANYWEREWOLVES})
                 }
                 else if(data.numWerewolves < 1){
-                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.NOTENOUGHWEREWOLVES)
+                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, {
+                        type: Shared.CreateGameOutcome.NOTENOUGHWEREWOLVES})
                 }
                 else{
-                    lobbyGames[data.name] = new Shared.LobbyGameState(data.numPlayers, data.numWerewolves)
-                    lobbyGames[data.name].players.add(username)
+                    const currentGame = lobbyGames[data.name] = new LobbyGameState(data.numPlayers, data.numWerewolves)
+                    currentGame.players.add(username)
                     userToGameMap[username] = data.name
-                    socket.emit(Shared.ServerSocketEvent.CreateGameOutcome, Shared.CreateGameOutcome.SUCCESS)
-                    socket.emit(Shared.ServerSocketEvent.LOBBYGAMESTATE, currentGame)
+                    socket.emit(Shared.ServerSocketEvent.CreateGameOutcome, {
+                        type: Shared.CreateGameOutcome.SUCCESS,
+                        gameName: data.name,
+                        gameState: currentGame.serialize()
+                    })
                     io.to(LOBBYUPDATESROOM).emit(Shared.ServerSocketEvent.LOBBYUPDATE, {
                         type: Shared.LobbyUpdate.GAMECREATED,
                         game: data.name,
@@ -374,7 +403,8 @@ io.on("connection", function(socket){
         socket.on(Shared.ClientSocketEvent.JOINGAME, function(data){
             if(data && data.name){
                 if(userToGameMap[username]){
-                    socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, Shared.JoinGameOutcome.ALREADYINGAME)
+                    socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, {
+                        type: Shared.JoinGameOutcome.ALREADYINGAME})
                 }
                 else if(lobbyGames[data.name]){
                     userToGameMap[username] = data.name
@@ -385,13 +415,25 @@ io.on("connection", function(socket){
                         game: data.name,
                         player: username
                     })
+                    const serializedGameState = currentGame.serialize()
+                    for(let player of currentGame.players){
+                        if(userToSocketMap[player] && player != username){
+                            userToSocketMap[player].emit(Shared.ServerSocketEvent.LOBBYGAMESTATE, serializedGameState)
+                        }
+                    }
+                    socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, {
+                        type: Shared.JoinGameOutcome.SUCCESS,
+                        gameName: data.name,
+                        gameState: serializedGameState
+                    })
                     if(currentGame.players.size == currentGame.maxPlayers){
                         let gameController = null
                         try{
                             gameController = new GameController.GameController(currentGame.maxPlayers, currentGame.numWerewolves, gameEndCallback)
                         }
                         catch(error){
-                            socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, Shared.JoinGameOutcome.INTERNALERROR)
+                            socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, {
+                                type: Shared.JoinGameOutcome.INTERNALERROR})
                             console.error("Error occurred while creating game controller " + error)
                         }
                         if(gameController){
@@ -423,14 +465,6 @@ io.on("connection", function(socket){
                             })
                         }
                     }
-                    else{
-                        socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, Shared.JoinGameOutcome.SUCCESS)
-                        for(let player of currentGame.players){
-                            if(userToSocketMap[player]){
-                                userToSocketMap[player].emit(Shared.ServerSocketEvent.LOBBYGAMESTATE, currentGame)
-                            }
-                        }
-                    }
                 }
                 else{
                     socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, Shared.JoinGameOutcome.DOESNOTEXIST)
@@ -448,9 +482,10 @@ io.on("connection", function(socket){
                     currentGame.players.delete(username)
                     delete userToGameMap[username]
                     socket.emit(Shared.ServerSocketEvent.LEAVEGAMEOUTCOME, SUCCESS)
+                    const serializedGameState = currentGame.serialize()
                     for(let player of currentGame.players){
                         if(userToSocketMap[player]){
-                            userToSocketMap[player].emit(Shared.ServerSocketEvent.LOBBYGAMESTATE, currentGame)
+                            userToSocketMap[player].emit(Shared.ServerSocketEvent.LOBBYGAMESTATE, serializedGameState)
                         }
                     }
                     io.to(LOBBYUPDATESROOM).emit(Shared.ServerSocketEvent.LOBBYUPDATE, {
@@ -480,7 +515,16 @@ io.on("connection", function(socket){
         socket.on(Shared.ClientSocketEvent.LOBBYGAMESTATEREQUEST, function(){
             const usersGameName = userToGameMap[username]
             if(usersGameName && usersGameName in lobbyGames){
-                socket.emit(Shared.ServerSocketEvent.LOBBYGAMESTATE, lobbyGames[usersGameName].serialize())
+                socket.emit(Shared.ServerSocketEvent.LOBBYGAMESTATEREPLY, {
+                    type: Shared.LobbyGameStateRequestOutcome.SUCCESS,
+                    gameName: usersGameName,
+                    gameState: lobbyGames[usersGameName].serialize()
+                })
+            }
+            else{
+                socket.emit(Shared.LobbyGameStateRequestOutcome, {
+                    type: Shared.LobbyGameStateRequestOutcome.NOTINLOBBYGAME
+                })
             }
         })
     }

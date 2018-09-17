@@ -128,8 +128,8 @@ Shared.ServerSocketEvent = {
     STATUSREPLY: "statusReply", // reply to STATUSREQUEST by client containing game information
     GAMEACTION: "gameAction", // action related to the context of the game itself
     LOBBYUPDATE: "lobbyUpdate", // update to the status of the game lobby (e.g. a player joins/leaves a game)
-    LOBBYSTATE: "lobbyState", // message containing complete state of lobby
-    LOBBYGAMESTATE: "lobbyGameState", // message containing complete state of a lobby game
+    LOBBYSTATEREPLY: "lobbyState", // message containing complete state of lobby
+    LOBBYGAMESTATEREPLY: "lobbyGameState", // message containing complete state of a lobby game
     LOBBYUPDATESSUBSCRIBED: "lobbyUpdatesSubscribed", // confirmation that lobby updates room has been joined
     LOBBYUPDATESUNSUBSCRIBED: "lobbyUpdatesUnsubscribed",
     CREATEGAMEOUTCOME: "createGameOutcome", // outcome of a create game request, enumerated in CreateGameOutcome
@@ -151,6 +151,17 @@ Shared.ClientSocketEvent = {
     JOINGAME: "joinGame",
     CREATEGAME: "createGame",
     LEAVEGAME: "leaveGame" // leave game in lobby, before it has started. Currenlty no way to leave started games.
+}
+
+Shared.StatusType = {
+    INGAME: "inGame",
+    INLOBBYGAME: "inLobbyGame",
+    INLOBBY: "inLobby"
+}
+
+Shared.LobbyGameStateRequestOutcome = {
+    SUCCESS: "success",
+    NOTINLOBBYGAME: "notInLobbyGame"
 }
 
 Shared.CreateGameOutcome = {

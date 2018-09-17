@@ -409,11 +409,22 @@ GameController.GameController = class {
             }
         return stateInfoPayload
     }
-    gameStateUpdateForPlayer(player){
+    // returns payload only
+    // can be used externally to include game state in a message
+    rawGameStateUpdateForPlayer(player){
         if(player in this.gameState.players){
             const isPrivileged = this.gameState.players[player].isWerewolf
             const payload = this.gameStateMessage(isPrivileged)
-            return new [GameController.GameControllerMessage([player], payload)]
+            return payload
+        }
+        else{
+            console.log("Warning: raw game state update requested for non-existent player.")
+            return null
+        }
+    }
+    gameStateUpdateForPlayer(player){
+        if(player in this.gameState.players){
+            return new [GameController.GameControllerMessage([player], rawGameStateUpdateForPlayer(player))]
         }
         else{
             console.log("Warning: game state update requested for non-existent player.")
