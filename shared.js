@@ -125,6 +125,7 @@ Shared.ChangePasswordOutcome = {
 
 Shared.ServerSocketEvent = {
     SYSTEMNOTICE: "systemNotice", // notices from server unrelated to the happenings inside the game
+    INITIALSTATUSREPLY: "initialStatusReply", // excludes state details
     STATUSREPLY: "statusReply", // reply to STATUSREQUEST by client containing game information
     GAMEACTION: "gameAction", // action related to the context of the game itself
     LOBBYUPDATE: "lobbyUpdate", // update to the status of the game lobby (e.g. a player joins/leaves a game)
@@ -143,6 +144,7 @@ Shared.ServerSocketEvent = {
 
 Shared.ClientSocketEvent = {
     GAMEACTION: "gameAction", // action related to the context of the game itself
+    INITIALSTATUSREQUEST: "initialStatusRequest", // request for reply that excludes state details
     STATUSREQUEST: "statusRequest", // request from client asking for the client's status (e.g. whether it is in a game)
     LOBBYSTATEREQUEST: "lobbyStateRequest", // client message asking for complete state of lobby
     LOBBYGAMESTATEREQUEST: "lobbyGameStateRequest",

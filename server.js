@@ -254,14 +254,14 @@ LobbyGameState = class {
         const serializedState = new Shared.LobbyGameState()
         serializedState.maxPlayers = this.maxPlayers
         serializedState.numWerewolves = this.numWerewolves
-        this.players = Array.from(this.players)
+        serializedState.players = Array.from(this.players)
         return serializedState
     }
 }
 
 function getSerializedLobbyState(){
     const serializedLobbyState = {}
-    for(let gameName in Object.keys(lobbyGames)){
+    for(let gameName of Object.keys(lobbyGames)){
         serializedLobbyState[gameName] = lobbyGames[gameName].serialize()
     }
     return serializedLobbyState
@@ -318,6 +318,28 @@ io.on("connection", function(socket){
             else{
                 socket.emit(Shared.ServerSocketEvent.SYSTEMNOTICE, "Received game action message, but you do not appear to be in a game.")
                 console.log("Warning: game action message received from user not in a game.")
+            }
+        })
+        socket.on(Shared.ClientSocketEvent.INITIALSTATUSREQUEST, function(){
+            const gameName = userToGameMap[username]
+            if(gameName){
+                if(gameName in lobbyGames){
+                    socket.emit(Shared.ServerSocketEvent.INITIALSTATUSREPLY, {
+                        type: Shared.StatusType.INLOBBYGAME,
+                        gameName: gameName
+                    })
+                }
+                else{
+                    socket.emit(Shared.ServerSocketEvent.INITIALSTATUSREPLY, {
+                        type: Shared.StatusType.INGAME,
+                        gameName: gameName
+                    })
+                }
+            }
+            else{
+                socket.emit(Shared.ServerSocketEvent.INITIALSTATUSREPLY, {
+                    type: Shared.StatusType.INLOBBY
+                })
             }
         })
         socket.on(Shared.ClientSocketEvent.STATUSREQUEST, function(){
@@ -382,7 +404,7 @@ io.on("connection", function(socket){
                     const currentGame = lobbyGames[data.name] = new LobbyGameState(data.numPlayers, data.numWerewolves)
                     currentGame.players.add(username)
                     userToGameMap[username] = data.name
-                    socket.emit(Shared.ServerSocketEvent.CreateGameOutcome, {
+                    socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, {
                         type: Shared.CreateGameOutcome.SUCCESS,
                         gameName: data.name,
                         gameState: currentGame.serialize()
@@ -478,10 +500,10 @@ io.on("connection", function(socket){
             const usersGameName = userToGameMap[username]
             if(usersGameName){
                 if(usersGameName in lobbyGames){
-                    const currentGame = userToGameMap[username]
+                    const currentGame = lobbyGames[usersGameName]
                     currentGame.players.delete(username)
                     delete userToGameMap[username]
-                    socket.emit(Shared.ServerSocketEvent.LEAVEGAMEOUTCOME, SUCCESS)
+                    socket.emit(Shared.ServerSocketEvent.LEAVEGAMEOUTCOME, Shared.LeaveGameOutcome.SUCCESS)
                     const serializedGameState = currentGame.serialize()
                     for(let player of currentGame.players){
                         if(userToSocketMap[player]){
@@ -493,7 +515,7 @@ io.on("connection", function(socket){
                         game: usersGameName,
                         player: username
                     })
-                    if(lobbyGames[usersGameName].isEmpty()){
+                    if(lobbyGames[usersGameName].players.size === 0){
                         delete lobbyGames[usersGameName]
                         io.to(LOBBYUPDATESROOM).emit(Shared.ServerSocketEvent.LOBBYUPDATE, {
                             type: Shared.LobbyUpdate.GAMEDELETED,
