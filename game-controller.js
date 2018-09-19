@@ -35,7 +35,7 @@ GameController.GameController = class {
         if(players.size < 4){
             throw new RangeError("Total players in a game must be at least 4.")
         }
-        if(totalWerewolves * 2 >= players.size){
+        if(numWerewolves * 2 >= players.size){
             throw new RangeError("There must be more than twice as many villagers as werewolves.")
         }
         this.gameState = new GameController.GameState()

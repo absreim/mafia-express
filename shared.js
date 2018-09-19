@@ -61,7 +61,7 @@ Shared.GameState = class {
         this.phase = Shared.Phases.WAITING
         this.players = {} // player name -> PlayerDetails object
         this.votes = {} // player name -> value; true = yea, false = nay
-        this.acks = [] // acknowledgements for information displayed in certain phases
+        this.acks = null // array of acknowledgements for information displayed in certain phases
         this.chosenPlayer = null // player chosen for voting or player just killed
     }
 }
@@ -73,7 +73,7 @@ Shared.LobbyGameState = class {
     constructor(maxPlayers, numWerewolves){
         this.maxPlayers = maxPlayers
         this.numWerewolves = numWerewolves
-        this.players = []
+        this.players = null // array
     }
 }
 

@@ -480,7 +480,7 @@ io.on("connection", function(socket){
                                     currentPlayerSocket.emit(Shared.ServerSocketEvent.REMOVEDFROMGAME)
                                 }
                             }
-                            delete lobbyGames[usersGameName]
+                            delete lobbyGames[data.name]
                             io.to(LOBBYUPDATESROOM).emit(Shared.ServerSocketEvent.LOBBYUPDATE, {
                                 type: Shared.LobbyUpdate.GAMEDELETED,
                                 game: data.name
