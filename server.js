@@ -273,7 +273,7 @@ function processGameControllerResponses(responses){
             for(let recipient of response.recipients){
                 let recipientSocket = userToSocketMap[recipient]
                 if(recipientSocket){
-                    recipientSocket.emit(Shared.SocketIOEvents.GAMEACTION, response.payload)
+                    recipientSocket.emit(Shared.ServerSocketEvent.GAMEACTION, response.payload)
                 }
                 else{
                     console.log(`Warning: tried to send game action message to user "${recipient}", but that user does not have an associated socket.`)
@@ -311,9 +311,9 @@ io.on("connection", function(socket){
             delete userToSocketMap[username]
         })
         socket.on(Shared.ClientSocketEvent.GAMEACTION, function(data){
-            const usersGame = userToGameMap[username]
-            if(usersGame){
-                processGameControllerResponses(usersGame.handleMessage(data, username))
+            const usersGameName = userToGameMap[username]
+            if(usersGameName in startedGames){
+                processGameControllerResponses(startedGames[usersGameName].handleMessage(data, username))
             }
             else{
                 socket.emit(Shared.ServerSocketEvent.SYSTEMNOTICE, "Received game action message, but you do not appear to be in a game.")
@@ -353,6 +353,7 @@ io.on("connection", function(socket){
                     })
                 }
                 else{
+                    console.log(startedGames[gameName].rawGameStateUpdateForPlayer(username))
                     socket.emit(Shared.ServerSocketEvent.STATUSREPLY, {
                         type: Shared.StatusType.INGAME,
                         gameName: gameName,
@@ -451,7 +452,7 @@ io.on("connection", function(socket){
                     if(currentGame.players.size == currentGame.maxPlayers){
                         let gameController = null
                         try{
-                            gameController = new GameController.GameController(currentGame.maxPlayers, currentGame.numWerewolves, gameEndCallback)
+                            gameController = new GameController.GameController(Array.from(currentGame.players), currentGame.numWerewolves, gameEndCallback)
                         }
                         catch(error){
                             socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, {
@@ -523,7 +524,7 @@ io.on("connection", function(socket){
                         })
                     }
                 }
-                else if(usersGame in startedGames){
+                else if(usersGameName in startedGames){
                     socket.emit(Shared.ServerSocketEvent.LEAVEGAMEOUTCOME, Shared.LeaveGameOutcome.GAMESTARTED)
                 }
                 else{

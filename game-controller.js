@@ -39,8 +39,8 @@ GameController.GameController = class {
             throw new RangeError("There must be more than twice as many villagers as werewolves.")
         }
         this.gameState = new GameController.GameState()
-        for(let player of players){ // copy contents of input set
-            this.gameState.players.add(player)
+        for(let player of players){
+            this.gameState.players[player] = new Shared.PlayerDetails(false)
         }
         this.numWerewolves = numWerewolves
         this.gameEndCallback = gameEndCallback
@@ -91,9 +91,9 @@ GameController.GameController = class {
         }
     }
     gameStateReqHandler(sendingPlayer){
-        if(sendingPlayer in gameState.players){
+        if(sendingPlayer in this.gameState.players){
             const recipients = [sendingPlayer]
-            const payload = this.gameStateMessage(gameState.players[sendingPlayer].isWerewolf)
+            const payload = this.gameStateMessage(this.gameState.players[sendingPlayer].isWerewolf)
             return [new GameController.GameControllerMessage(recipients,payload)]
         }
         else {
@@ -361,11 +361,7 @@ GameController.GameController = class {
             player => this.gameState.players[player].isWerewolf && this.gameState.players[player].isAlive
         )
     }
-    /* Return message payload describing game state. Non-privileged messages have faction
-    information removed to prevents clients who are villagers from determining
-    the identity of the werewolf. If calling this function before game has started,
-    isPrivileged must be false. */
-    gameStateMessage(isPrivileged){
+    gameStateCopy(isPrivileged){
         const gameStateCopy = new Shared.GameState()
         gameStateCopy.phase = this.gameState.phase
         gameStateCopy.chosenPlayer = this.gameState.chosenPlayer
@@ -402,20 +398,24 @@ GameController.GameController = class {
             }
         }
         gameStateCopy.acks = Array.from(this.gameState.acks)
-        const stateInfoPayload =
-            {
-                type: Shared.ServerMessageType.GAMESTATEINFO,
-                info: gameStateCopy
-            }
-        return stateInfoPayload
+        return gameStateCopy
     }
-    // returns payload only
+    /* Return message payload describing game state. Non-privileged messages have faction
+    information removed to prevents clients who are villagers from determining
+    the identity of the werewolf. If calling this function before game has started,
+    isPrivileged must be false. */
+    gameStateMessage(isPrivileged){
+        return {
+            type: Shared.ServerMessageType.GAMESTATEINFO,
+            info: this.gameStateCopy(isPrivileged)
+        }
+    }
+    // returns game state object only
     // can be used externally to include game state in a message
     rawGameStateUpdateForPlayer(player){
         if(player in this.gameState.players){
             const isPrivileged = this.gameState.players[player].isWerewolf
-            const payload = this.gameStateMessage(isPrivileged)
-            return payload
+            return this.gameStateCopy(isPrivileged)
         }
         else{
             console.log("Warning: raw game state update requested for non-existent player.")
