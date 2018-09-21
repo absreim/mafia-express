@@ -353,7 +353,6 @@ io.on("connection", function(socket){
                     })
                 }
                 else{
-                    console.log(startedGames[gameName].rawGameStateUpdateForPlayer(username))
                     socket.emit(Shared.ServerSocketEvent.STATUSREPLY, {
                         type: Shared.StatusType.INGAME,
                         gameName: gameName,
@@ -420,7 +419,7 @@ io.on("connection", function(socket){
                 }
             }
             else{
-                socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, Shared.CreateGameOutcome.MISSINGINFO)
+                socket.emit(Shared.ServerSocketEvent.CREATEGAMEOUTCOME, {type: Shared.CreateGameOutcome.MISSINGINFO})
             }
         })
         socket.on(Shared.ClientSocketEvent.JOINGAME, function(data){
@@ -452,7 +451,8 @@ io.on("connection", function(socket){
                     if(currentGame.players.size == currentGame.maxPlayers){
                         let gameController = null
                         try{
-                            gameController = new GameController.GameController(Array.from(currentGame.players), currentGame.numWerewolves, gameEndCallback)
+                            gameController = new GameController.GameController(Array.from(currentGame.players), currentGame.numWerewolves, 
+                                (players) => gameEndCallback(data.name, players))
                         }
                         catch(error){
                             socket.emit(Shared.ServerSocketEvent.JOINGAMEOUTCOME, {

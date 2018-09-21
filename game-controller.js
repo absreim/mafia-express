@@ -165,7 +165,7 @@ GameController.GameController = class {
                         const recipients = Object.keys(this.gameState.players).filter(
                             player => this.gameState.players[player].isWerewolf
                         )
-                        const payload = gameStateMessage(true)
+                        const payload = this.gameStateMessage(true)
                         return [new GameController.GameControllerMessage(recipients, payload)]
                     }
                 }
@@ -272,7 +272,7 @@ GameController.GameController = class {
                 }
             case Shared.Phases.STARTED:
                 this.gameState.acks.add(sendingPlayer)
-                if(this.gameState.acks.size == Object.keys(this.gameState.players).length){
+                if(this.gameState.acks.size === Object.keys(this.gameState.players).length){
                     this.gameState.phase = Shared.Phases.NIGHTTIME
                     return this.gameStateUpdateAll()
                 }
@@ -287,7 +287,7 @@ GameController.GameController = class {
                 }
             case Shared.Phases.OVER:
                 this.gameState.acks.add(sendingPlayer)
-                if(this.gameState.acks.size == Object.keys(this.gameState.players).length){
+                if(this.gameState.acks.size === Object.keys(this.gameState.players).length){
                     this.gameEndCallback(Object.keys(this.gameState.players))
                 }
                 else{
@@ -305,45 +305,50 @@ GameController.GameController = class {
         }
     }
     suggestHandler(sendingPlayer, target){
-        switch(this.gameState.phase){
-            case Shared.Phases.DAYTIME:
-                if(this.livingPlayersCache.has(sendingPlayer)){
-                    if(this.livingPlayersCache.has(target)){
-                        this.gameState.phase = Shared.Phases.DAYTIMEVOTING
-                        this.gameState.chosenPlayer = target
-                        this.gameState.votes = {}
-                        return this.gameStateUpdateAll()
+        if(target in this.gameState.players){
+            switch(this.gameState.phase){
+                case Shared.Phases.DAYTIME:
+                    if(this.livingPlayersCache.has(sendingPlayer)){
+                        if(this.livingPlayersCache.has(target)){
+                            this.gameState.phase = Shared.Phases.DAYTIMEVOTING
+                            this.gameState.chosenPlayer = target
+                            this.gameState.votes = {}
+                            return this.gameStateUpdateAll()
+                        }
+                        else{
+                            console.log("Warning: target player not in set of living players.")
+                            return null
+                        }
                     }
                     else{
-                        console.log("Warning: target player not in set of living players.")
+                        console.log("Warning: player that chose target not in set of living players.")
                         return null
                     }
-                }
-                else{
-                    console.log("Warning: player that chose target not in set of living players.")
-                    return null
-                }
-            case Shared.Phases.NIGHTTIME:
-                if(this.gameState.players[sendingPlayer].isAlive && this.gameState.players[sendingPlayer].isWerewolf){
-                    if(!this.gameState.players[target].isWerewolf && this.gameState.players[target].isAlive){
-                        this.gameState.phase = Shared.Phases.NIGHTTIMEVOTING
-                        this.gameState.chosenPlayer = target
-                        this.gameState.votes = {}
-                        return this.gameStateUpdateAll()
+                case Shared.Phases.NIGHTTIME:
+                    if(this.gameState.players[sendingPlayer].isAlive && this.gameState.players[sendingPlayer].isWerewolf){
+                        if(!this.gameState.players[target].isWerewolf && this.gameState.players[target].isAlive){
+                            this.gameState.phase = Shared.Phases.NIGHTTIMEVOTING
+                            this.gameState.chosenPlayer = target
+                            this.gameState.votes = {}
+                            return this.gameStateUpdateAll()
+                        }
+                        else{
+                            console.log("Warning: target player not in set of living villagers.")
+                            return null
+                        }
                     }
                     else{
-                        console.log("Warning: target player not in set of living villagers.")
+                        console.log("Warning: player that chose target not in set of living werewolves.")
                         return null
                     }
-                }
-                else{
-                    console.log("Warning: player that chose target not in set of living werewolves.")
+                /* Fairly high chance for race condition to occur where multiple targets are suggested
+                before the game phase changes. Therefore, there will be no warning message printed here. */
+                default:
                     return null
-                }
-            /* Fairly high chance for race condition to occur where multiple targets are suggested
-            before the game phase changes. Therefore, there will be no warning message printed here. */
-            default:
-                return null
+            }
+        }
+        else{
+            console.log(`Warning: suggested target player "${target}" does not exist in game.`)
         }
     }
     /* Placeholder. Move this code to the function that initlializes the set of players. */
@@ -414,8 +419,13 @@ GameController.GameController = class {
     // can be used externally to include game state in a message
     rawGameStateUpdateForPlayer(player){
         if(player in this.gameState.players){
-            const isPrivileged = this.gameState.players[player].isWerewolf
-            return this.gameStateCopy(isPrivileged)
+            if(this.gameState.phase === Shared.Phases.OVER){
+                return this.gameStateCopy(true)
+            }
+            else{
+                const isPrivileged = this.gameState.players[player].isWerewolf
+                return this.gameStateCopy(isPrivileged)
+            }
         }
         else{
             console.log("Warning: raw game state update requested for non-existent player.")
